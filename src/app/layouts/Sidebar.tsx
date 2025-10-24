@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Flex, Layout, Menu, type MenuProps, Typography } from 'antd'
-import { LineChartOutlined } from '@ant-design/icons'
-import { useLocation } from 'react-router-dom'
+import { LineChartOutlined, BranchesOutlined, TruckOutlined } from '@ant-design/icons'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { EventType, useEvent } from '@/shared/lib/EventBus.ts'
 
 const { Sider } = Layout
@@ -20,11 +20,20 @@ const siderStyle: React.CSSProperties = {
 
 const Sidebar: React.FC = () => {
   const location = useLocation()
+  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
 
   useEvent(EventType.SidebarCollapsed, (payload) => setCollapsed(payload))
 
-  const items: MenuProps['items'] = [{ key: '/', icon: <LineChartOutlined />, label: 'Users' }]
+  const handleMenuClick = ({ key }: { key: string }) => {
+    navigate(key)
+  }
+
+  const items: MenuProps['items'] = [
+    { key: '/', icon: <LineChartOutlined />, label: 'Users' },
+    { key: '/branches', icon: <BranchesOutlined />, label: 'Branches' },
+    { key: '/loads', icon: <TruckOutlined />, label: 'Loads' }
+  ]
 
   return (
     <Sider style={siderStyle} trigger={null} collapsible collapsed={collapsed} theme="light" width={240} breakpoint="md">
@@ -34,7 +43,13 @@ const Sidebar: React.FC = () => {
         </Flex>
       )}
 
-      <Menu mode="inline" style={{ borderInlineEnd: 'none' }} selectedKeys={[location.pathname]} items={items} />
+      <Menu 
+        mode="inline" 
+        style={{ borderInlineEnd: 'none' }} 
+        selectedKeys={[location.pathname]} 
+        items={items}
+        onClick={handleMenuClick}
+      />
     </Sider>
   )
 }

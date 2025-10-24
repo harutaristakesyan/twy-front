@@ -4,6 +4,8 @@ import AppLayout from '@/app/layouts/Layout.tsx'
 
 import LoginPage from '@/pages/LoginPage'
 import UsersPage from '@/pages/UsersPage.tsx'
+import BranchesPage from '@/pages/BranchesPage'
+import LoadsPage from '@/pages/LoadsPage'
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage'
 import VerificationPage from '@/pages/VerificationPage'
 import CreatePasswordPage from '@/pages/CreatePasswordPage'
@@ -23,7 +25,11 @@ export const router = createBrowserRouter([
     children: [
       {
         element: <AppLayout />,
-        children: [{ index: true, element: <UsersPage /> }],
+        children: [
+          { index: true, element: <UsersPage /> },
+          { path: 'branches', element: <BranchesPage /> },
+          { path: 'loads', element: <LoadsPage /> }
+        ],
       },
     ],
   },
