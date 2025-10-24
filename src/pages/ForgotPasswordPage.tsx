@@ -1,4 +1,4 @@
-import {Card, Flex, Typography} from 'antd'
+import { Card, Flex, Typography } from 'antd'
 import ForgotPasswordForm from '@/features/auth/forgot-password/ForgotPasswordForm.tsx'
 import CardHeader from '@/features/auth/components/CardHeader.tsx'
 

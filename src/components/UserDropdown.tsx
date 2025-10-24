@@ -1,5 +1,5 @@
 import { Dropdown, Flex, type MenuProps } from 'antd'
-import { DownOutlined, LogoutOutlined} from '@ant-design/icons'
+import { DownOutlined, LogoutOutlined } from '@ant-design/icons'
 import { useAuth } from '@/auth/AuthContext.tsx'
 import { decodeIdTokenToken } from '@/shared/utils/jwt.ts'
 import { UserAvatar } from '@/shared/ui/UserAvatar.tsx'

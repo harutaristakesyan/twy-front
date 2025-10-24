@@ -1,11 +1,10 @@
-import {ArrowRightOutlined, CheckOutlined, CloseOutlined, LockOutlined} from '@ant-design/icons'
-import {App as AntdApp, Button, Col, Divider, Form, Input, List, Row, Space, Typography} from 'antd'
-import {useNavigate} from 'react-router-dom'
+import { ArrowRightOutlined, CheckOutlined, CloseOutlined, LockOutlined } from '@ant-design/icons'
+import { App as AntdApp, Button, Col, Divider, Form, Input, List, Row, Space, Typography } from 'antd'
+import { useNavigate } from 'react-router-dom'
 import React from 'react'
-import {mapErrorToModalProps} from '@/shared/utils/errorUtils.ts'
+import { mapErrorToModalProps } from '@/shared/utils/errorUtils.ts'
 import ApiClient from '@/shared/api/ApiClient.ts'
-import {useRequest} from 'ahooks'
-import {useAnalytics} from '@/lib/analytics/AnalyticsContext'
+import { useRequest } from 'ahooks'
 
 const { Text } = Typography
 
@@ -32,25 +31,14 @@ const RegistrationForm = () => {
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { modal } = AntdApp.useApp()
-  const { trackEvent } = useAnalytics()
-
   const { run, loading } = useRequest(
     async (values: RegistrationFormValues) => {
-      trackEvent('registration_attempted', {
-        email: values.email,
-        hasFirstName: !!values.firstName,
-        hasLastName: !!values.lastName,
-      })
       return ApiClient.post<{ userSub: string; message: string }>('/signup', values, true)
     },
     {
       manual: true,
       onSuccess: (data, params) => {
         const [values] = params
-        trackEvent('registration_successful', {
-          email: values.email,
-          userSub: data.userSub,
-        })
         navigate('/verification', {
           state: {
             email: values.email,
@@ -59,9 +47,6 @@ const RegistrationForm = () => {
         })
       },
       onError: (error) => {
-        trackEvent('registration_failed', {
-          error: error.message,
-        })
         modal.error(mapErrorToModalProps(error))
       },
     }
@@ -147,16 +132,7 @@ const RegistrationForm = () => {
       </Form.Item>
 
       <Form.Item>
-        <Button
-          block
-          onClick={() => trackEvent('create_account_button_clicked')}
-          htmlType="submit"
-          iconPosition="end"
-          disabled={!submittable}
-          icon={<ArrowRightOutlined />}
-          loading={loading}
-          type="primary"
-        >
+        <Button block htmlType="submit" iconPosition="end" disabled={!submittable} icon={<ArrowRightOutlined />} loading={loading} type="primary">
           Create Account
         </Button>
       </Form.Item>
