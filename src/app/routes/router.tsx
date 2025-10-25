@@ -6,6 +6,7 @@ import LoginPage from '@/pages/LoginPage'
 import UsersPage from '@/pages/UsersPage.tsx'
 import BranchesPage from '@/pages/BranchesPage'
 import LoadsPage from '@/pages/LoadsPage'
+import ProfilePage from '@/pages/ProfilePage'
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage'
 import VerificationPage from '@/pages/VerificationPage'
 import CreatePasswordPage from '@/pages/CreatePasswordPage'
@@ -28,7 +29,8 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <UsersPage /> },
           { path: 'branches', element: <BranchesPage /> },
-          { path: 'loads', element: <LoadsPage /> }
+          { path: 'loads', element: <LoadsPage /> },
+          { path: 'profile', element: <ProfilePage /> }
         ],
       },
     ],

@@ -1,0 +1,387 @@
+import React, { useState, useEffect } from 'react'
+import {
+  Table,
+  Button,
+  Space,
+  Tag,
+  Popconfirm,
+  message,
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Typography,
+  Input,
+  Select,
+  DatePicker,
+  Tooltip,
+  Badge
+} from 'antd'
+import {
+  EditOutlined,
+  DeleteOutlined,
+  UserAddOutlined,
+  SearchOutlined,
+  FilterOutlined,
+  ReloadOutlined,
+  UserOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined
+} from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
+import { UserRole, USER_ROLE_LABELS } from '@/entities/user/types'
+import type { User } from '@/entities/user/types'
+import { getUsers, deleteUser } from '@/entities/user/api'
+import UserEditModal from './UserEditModal'
+import UserCreateModal from './UserCreateModal'
+
+const { Title, Text } = Typography
+const { Search } = Input
+const { Option } = Select
+const { RangePicker } = DatePicker
+
+const UserManagementTable: React.FC = () => {
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(false)
+  const [searchText, setSearchText] = useState('')
+  // const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all')
+  // const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false)
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(0) // zero-indexed
+  const [pageSize, setPageSize] = useState(10)
+  const [total, setTotal] = useState(0)
+  const [sortField, setSortField] = useState<'firstName' | 'lastName' | 'email' | 'role' | 'isActive' | 'createdAt' | 'branch'>('createdAt')
+  const [sortOrder, setSortOrder] = useState<'ascend' | 'descend'>('descend')
+
+  const fetchUsers = async () => {
+    setLoading(true)
+    try {
+      const response = await getUsers({
+        page: currentPage,
+        limit: pageSize,
+        sortField,
+        sortOrder,
+        query: searchText || undefined
+      })
+      setUsers(response.users)
+      setTotal(response.total)
+    } catch (error) {
+      message.error('Failed to fetch users')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchUsers()
+  }, [currentPage, pageSize, sortField, sortOrder, searchText])
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteUser(id)
+      message.success('User deleted successfully')
+      fetchUsers()
+    } catch (error) {
+      message.error('Failed to delete user')
+    }
+  }
+
+  const handleEdit = (user: User) => {
+    setEditingUser(user)
+    setIsEditModalVisible(true)
+  }
+
+  const handleEditSuccess = () => {
+    setIsEditModalVisible(false)
+    setEditingUser(null)
+    fetchUsers()
+  }
+
+  const handleCreateSuccess = () => {
+    setIsCreateModalVisible(false)
+    fetchUsers()
+  }
+
+  // Handle search with debouncing
+  const [searchInput, setSearchInput] = useState('')
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchText(searchInput)
+      setCurrentPage(0) // Reset to first page on search
+    }, 500) // 500ms debounce
+    
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  // Handle table changes (pagination, sorting, filters)
+  const handleTableChange = (pagination: any, filters: any, sorter: any) => {
+    // Handle pagination
+    if (pagination.current !== undefined) {
+      setCurrentPage(pagination.current - 1) // Convert to zero-indexed
+    }
+    if (pagination.pageSize !== undefined) {
+      setPageSize(pagination.pageSize)
+      setCurrentPage(0) // Reset to first page when page size changes
+    }
+
+    // Handle sorting
+    if (sorter.field) {
+      setSortField(sorter.field)
+      setSortOrder(sorter.order || 'descend')
+    }
+  }
+
+  const getRoleColor = (role: UserRole) => {
+    const colors = {
+      [UserRole.OWNER]: 'red',
+      [UserRole.HEAD_OWNER]: 'magenta',
+      [UserRole.HEAD_ACCOUNTANT]: 'purple',
+      [UserRole.ACCOUNTANT]: 'blue',
+      [UserRole.AGENT]: 'green',
+      [UserRole.CARRIER]: 'orange'
+    }
+    return colors[role]
+  }
+
+  // No client-side filtering - using server-side search instead
+  const filteredUsers = users || []
+
+  const stats = {
+    total: total,
+    active: (users || []).filter(u => u.isActive).length,
+    inactive: (users || []).filter(u => !u.isActive).length,
+    owners: (users || []).filter(u => u.role === UserRole.OWNER).length,
+    headOwners: (users || []).filter(u => u.role === UserRole.HEAD_OWNER).length,
+    headAccountants: (users || []).filter(u => u.role === UserRole.HEAD_ACCOUNTANT).length,
+    accountants: (users || []).filter(u => u.role === UserRole.ACCOUNTANT).length,
+    agents: (users || []).filter(u => u.role === UserRole.AGENT).length,
+    carriers: (users || []).filter(u => u.role === UserRole.CARRIER).length
+  }
+
+  const columns: ColumnsType<User> = [
+    {
+      title: 'Name',
+      dataIndex: 'firstName',
+      key: 'firstName',
+      render: (_, record) => (
+        <Space>
+          <UserOutlined />
+          <div>
+            <div style={{ fontWeight: 500 }}>{record.firstName} {record.lastName}</div>
+            <Text type="secondary" style={{ fontSize: '12px' }}>{record.email}</Text>
+          </div>
+        </Space>
+      ),
+      sorter: true,
+      sortOrder: sortField === 'firstName' ? sortOrder : undefined
+    },
+    {
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role: UserRole) => (
+        <Tag color={getRoleColor(role)}>
+          {USER_ROLE_LABELS[role]}
+        </Tag>
+      ),
+      sorter: true,
+      sortOrder: sortField === 'role' ? sortOrder : undefined
+    },
+    {
+      title: 'Branch',
+      dataIndex: 'branchName',
+      key: 'branch',
+      render: (branchName, record) => {
+        // Support both formats: branch.name or branchName
+        const displayName = record.branch?.name || branchName || 'N/A'
+        return displayName
+      },
+      sorter: true,
+      sortOrder: sortField === 'branch' ? sortOrder : undefined
+    },
+    {
+      title: 'Status',
+      dataIndex: 'isActive',
+      key: 'isActive',
+      render: (isActive: boolean) => (
+        <Badge
+          status={isActive ? 'success' : 'error'}
+          text={isActive ? 'Active' : 'Inactive'}
+        />
+      ),
+      sorter: true,
+      sortOrder: sortField === 'isActive' ? sortOrder : undefined
+    },
+    {
+      title: 'Registered Date',
+      dataIndex: 'registeredDate',
+      key: 'createdAt',
+      render: (date: string) => new Date(date).toLocaleDateString(),
+      sorter: true,
+      sortOrder: sortField === 'createdAt' ? sortOrder : undefined
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          <Tooltip title="Edit User">
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+            />
+          </Tooltip>
+          <Popconfirm
+            title="Are you sure you want to delete this user?"
+            description="This action cannot be undone."
+            onConfirm={() => handleDelete(record.id)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Tooltip title="Delete User">
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+              />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
+      )
+    }
+  ]
+
+  return (
+    <div>
+      {/* Statistics Cards */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="Total Users"
+              value={stats.total}
+              prefix={<UserOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="Active Users"
+              value={stats.active}
+              prefix={<CheckCircleOutlined />}
+              valueStyle={{ color: '#3f8600' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="Inactive Users"
+              value={stats.inactive}
+              prefix={<CloseCircleOutlined />}
+              valueStyle={{ color: '#cf1322' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="Owners"
+              value={stats.owners}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Main Table Card */}
+      <Card>
+        <div style={{ marginBottom: 16 }}>
+          <Row justify="space-between" align="middle">
+            <Col>
+              <Title level={4} style={{ margin: 0 }}>User Management</Title>
+              <Text type="secondary">Manage users, roles, and permissions</Text>
+            </Col>
+            <Col>
+              <Space>
+                {/* <Button
+                  type="primary"
+                  icon={<UserAddOutlined />}
+                  onClick={() => setIsCreateModalVisible(true)}
+                >
+                  Add User
+                </Button> */}
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={fetchUsers}
+                  loading={loading}
+                >
+                  Refresh
+                </Button>
+              </Space>
+            </Col>
+          </Row>
+        </div>
+
+        {/* Search */}
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Search
+              placeholder="Search users..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              prefix={<SearchOutlined />}
+              allowClear
+            />
+          </Col>
+        </Row>
+
+        <Table
+          columns={columns}
+          dataSource={filteredUsers}
+          rowKey="id"
+          loading={loading}
+          onChange={handleTableChange}
+          pagination={{
+            current: currentPage + 1, // Convert from zero-indexed to one-indexed
+            pageSize: pageSize,
+            total: total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+            pageSizeOptions: ['5', '10', '20', '50', '100']
+          }}
+          scroll={{ x: 800 }}
+        />
+      </Card>
+
+      {/* Modals */}
+      {editingUser && (
+        <UserEditModal
+          user={editingUser}
+          visible={isEditModalVisible}
+          onCancel={() => {
+            setIsEditModalVisible(false)
+            setEditingUser(null)
+          }}
+          onSuccess={handleEditSuccess}
+        />
+      )}
+
+      <UserCreateModal
+        visible={isCreateModalVisible}
+        onCancel={() => setIsCreateModalVisible(false)}
+        onSuccess={handleCreateSuccess}
+      />
+    </div>
+  )
+}
+
+export default UserManagementTable

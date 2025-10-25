@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosRequestHeaders, type AxiosResponse } from 'axios'
-import { getAccessToken, getRefreshToken, isTokenExpired, setAccessToken, setIdToken } from '@/shared/utils/jwt.ts'
+import { getAccessToken, getRefreshToken, isTokenExpired, setAccessToken, setIdToken, clearTokens, clearAuthMethod } from '@/shared/utils/jwt.ts'
+import MockInterceptor from './mockInterceptor'
 
 class ApiClient {
   private static instance: AxiosInstance = axios.create({
@@ -8,6 +9,10 @@ class ApiClient {
   })
 
   static init() {
+    // Initialize mock interceptor first (if enabled, it will intercept before real requests)
+    MockInterceptor.init(ApiClient.instance)
+
+    // Add request interceptor for auth
     ApiClient.instance.interceptors.request.use(async (config) => {
       const headers = config.headers as AxiosRequestHeaders
 
@@ -27,6 +32,27 @@ class ApiClient {
 
       return config
     })
+
+    // Add response interceptor to handle 401 errors
+    ApiClient.instance.interceptors.response.use(
+      (response) => {
+        // Return successful responses as-is
+        return response
+      },
+      (error) => {
+        // Check if the error is a 401 Unauthorized
+        if (error.response?.status === 401) {
+          console.log('🔒 401 Unauthorized - Redirecting to login page')
+          // Clear all authentication tokens and auth method
+          clearTokens()
+          clearAuthMethod()
+          // Redirect to login page
+          window.location.href = '/login'
+        }
+        // Reject the promise to allow error handling in components
+        return Promise.reject(error)
+      }
+    )
   }
 
   static async refreshAccessToken(): Promise<string | null> {
@@ -45,7 +71,7 @@ class ApiClient {
   }
 
   private static async request<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body?: object,
     params?: Record<string, string | number | boolean>,
@@ -83,6 +109,10 @@ class ApiClient {
 
   static put<T>(path: string, body: object, skipAuth = false) {
     return this.request<T>('PUT', path, body, undefined, skipAuth)
+  }
+
+  static patch<T>(path: string, body: object, skipAuth = false) {
+    return this.request<T>('PATCH', path, body, undefined, skipAuth)
   }
 
   static delete<T>(path: string, skipAuth = false) {

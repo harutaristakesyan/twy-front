@@ -1,21 +1,23 @@
 import { Dropdown, Flex, type MenuProps } from 'antd'
-import { DownOutlined, LogoutOutlined } from '@ant-design/icons'
+import { DownOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons'
 import { useAuth } from '@/auth/AuthContext.tsx'
 import { decodeIdTokenToken } from '@/shared/utils/jwt.ts'
 import { UserAvatar } from '@/shared/ui/UserAvatar.tsx'
+import { useNavigate } from 'react-router-dom'
 
 const UserDropdown = () => {
   const { logout } = useAuth()
+  const navigate = useNavigate()
   const user = decodeIdTokenToken()
 
   const menuItems: MenuProps['items'] = [
-    // {
-    //     key: 'settings',
-    //     // onClick: () => NiceModal.show(UserSettingsModal),
-    //     icon: <UserOutlined/>,
-    //     label: 'Account Settings',
-    // },
-    // {type: 'divider'},
+    {
+      key: 'profile',
+      onClick: () => navigate('/profile'),
+      icon: <UserOutlined />,
+      label: 'My Profile',
+    },
+    { type: 'divider' },
     {
       key: 'logout',
       onClick: () => logout(),

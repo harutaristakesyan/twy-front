@@ -4,6 +4,7 @@ import { AuthProvider } from '@/auth/AuthContext.tsx'
 import AntdApp from '@/app/AntdApp.tsx'
 import { router } from '@/app/routes/router.tsx'
 import NiceModal from '@ebay/nice-modal-react'
+import DevModeIndicator from '@/components/DevModeIndicator.tsx'
 
 const App = () => {
   return (
@@ -12,6 +13,7 @@ const App = () => {
         <AntdApp>
           <NiceModal.Provider>
             <RouterProvider router={router} />
+            <DevModeIndicator />
           </NiceModal.Provider>
         </AntdApp>
       </AuthProvider>
