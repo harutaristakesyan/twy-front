@@ -82,12 +82,13 @@ class MockInterceptor {
       return this.handleUsersEndpoint(url, method, config)
     }
 
-    console.log(`⚠️ No mock handler found for: ${method} ${url}`)
+    // Branches endpoints
+    if (url.includes('/branches') && isMockEnabled('branches')) {
+      console.log(`✅ Matched branches endpoint, forwarding to handler`)
+      return this.handleBranchesEndpoint(url, method, config)
+    }
 
-    // Add more endpoints here as needed
-    // if (url.includes('/branches') && isMockEnabled('branches')) {
-    //   return this.handleBranchesEndpoint(url, method, config)
-    // }
+    console.log(`⚠️ No mock handler found for: ${method} ${url}`)
 
     return null // Let the real API handle it
   }
@@ -401,6 +402,144 @@ class MockInterceptor {
     return this.createResponse({
       success: false,
       message: 'Mock endpoint not implemented'
+    }, 501, config)
+  }
+
+  /**
+   * Handle branches endpoints
+   */
+  private static handleBranchesEndpoint(
+    url: string,
+    method: string = 'GET',
+    config: InternalAxiosRequestConfig
+  ): MockResponse {
+    console.log(`🎭 Mock ${method} ${url}`)
+
+    // GET /branches - Get branches with pagination, sorting, and search
+    if (method === 'GET' && (url.match(/^\/api\/branches\/?$/) || url.match(/^\/branches\/?$/))) {
+      console.log(`📋 Returning mock branches from store with pagination`)
+      
+      // Extract query parameters
+      const params = config.params || {}
+      const page = params.page !== undefined ? Number(params.page) : 0
+      const limit = params.limit !== undefined ? Number(params.limit) : 10
+      const sortField = params.sortField || 'createdAt'
+      const sortOrder = params.sortOrder || 'descend'
+      const query = params.query || ''
+      
+      console.log(`📋 Query params:`, { page, limit, sortField, sortOrder, query })
+      
+      const paginatedData = mockStore.getBranches({
+        page,
+        limit,
+        sortField,
+        sortOrder,
+        query
+      })
+      
+      console.log(`📊 Paginated response:`, paginatedData)
+      
+      return this.createResponse({
+        success: true,
+        data: paginatedData
+      }, 200, config)
+    }
+
+    // GET /branches/:id - Get branch by ID
+    if (method === 'GET' && (url.match(/^\/api\/branches\/[^\/]+\/?$/) || url.match(/^\/branches\/[^\/]+\/?$/))) {
+      const id = url.split('/').filter(Boolean).pop() || ''
+      console.log(`📋 Getting branch by ID: ${id}`)
+      const branch = mockStore.getBranchById(id)
+      
+      if (branch) {
+        return this.createResponse({
+          success: true,
+          data: branch
+        }, 200, config)
+      } else {
+        return this.createResponse({
+          success: false,
+          message: 'Branch not found'
+        }, 404, config)
+      }
+    }
+
+    // POST /branches - Create branch
+    if (method === 'POST' && (url.match(/^\/api\/branches\/?$/) || url.match(/^\/branches\/?$/))) {
+      const branchData = config.data
+      console.log('🔵 POST /branches intercepted, creating branch:', branchData)
+      
+      try {
+        const newBranch = mockStore.createBranch(branchData)
+        console.log('✅ Branch created successfully:', newBranch)
+        console.log('📊 Total branches in store:', mockStore.getBranches({ limit: 1000 }).total)
+        
+        return this.createResponse({
+          success: true,
+          data: newBranch,
+          message: 'Branch created successfully'
+        }, 201, config)
+      } catch (error) {
+        console.log('❌ Failed to create branch:', error)
+        return this.createResponse({
+          success: false,
+          message: error instanceof Error ? error.message : 'Failed to create branch'
+        }, 400, config)
+      }
+    }
+
+    // PUT /branches/:id - Update branch
+    if (method === 'PUT' && (url.match(/^\/api\/branches\/[^\/]+\/?$/) || url.match(/^\/branches\/[^\/]+\/?$/))) {
+      const id = url.split('/').filter(Boolean).pop() || ''
+      const updateData = config.data
+      console.log(`🟡 PUT /branches/${id} intercepted, updating branch:`, updateData)
+      
+      const updatedBranch = mockStore.updateBranch(id, updateData)
+      
+      if (updatedBranch) {
+        console.log('✅ Branch updated successfully:', updatedBranch)
+        return this.createResponse({
+          success: true,
+          data: updatedBranch,
+          message: 'Branch updated successfully'
+        }, 200, config)
+      } else {
+        console.log('❌ Branch not found for update:', id)
+        return this.createResponse({
+          success: false,
+          message: 'Branch not found'
+        }, 404, config)
+      }
+    }
+
+    // DELETE /branches/:id - Delete branch
+    if (method === 'DELETE' && (url.match(/^\/api\/branches\/[^\/]+\/?$/) || url.match(/^\/branches\/[^\/]+\/?$/))) {
+      const id = url.split('/').filter(Boolean).pop() || ''
+      console.log(`🔴 DELETE /branches/${id} intercepted, deleting branch`)
+      const success = mockStore.deleteBranch(id)
+      
+      if (success) {
+        console.log('✅ Branch deleted successfully, ID:', id)
+        console.log('📊 Remaining branches in store:', mockStore.getBranches({ limit: 1000 }).total)
+        return this.createResponse({
+          success: true,
+          data: {
+            message: 'Branch deleted successfully'
+          }
+        }, 200, config)
+      } else {
+        console.log('❌ Branch not found for deletion:', id)
+        return this.createResponse({
+          success: false,
+          message: 'Branch not found'
+        }, 404, config)
+      }
+    }
+
+    // Fallback for unhandled branch endpoints
+    return this.createResponse({
+      success: false,
+      message: 'Mock branch endpoint not implemented'
     }, 501, config)
   }
 

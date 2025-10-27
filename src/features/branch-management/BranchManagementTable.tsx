@@ -3,7 +3,6 @@ import {
   Table,
   Button,
   Space,
-  Tag,
   Popconfirm,
   message,
   Card,
@@ -12,41 +11,35 @@ import {
   Statistic,
   Typography,
   Input,
-  Select,
-  DatePicker,
   Tooltip,
-  Badge
+  Tag
 } from 'antd'
 import {
   EditOutlined,
   DeleteOutlined,
-  UserAddOutlined,
+  PlusOutlined,
   SearchOutlined,
-  FilterOutlined,
   ReloadOutlined,
-  UserOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined
+  BankOutlined,
+  UserOutlined
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
-import { UserRole, USER_ROLE_LABELS } from '@/entities/user/types'
+import type { Branch } from '@/entities/branch/types'
+import { getBranches, deleteBranch } from '@/entities/branch/api'
+import { getUsers } from '@/entities/user/api'
 import type { User } from '@/entities/user/types'
-import { getUsers, deleteUser } from '@/entities/user/api'
-import UserEditModal from './UserEditModal'
-import UserCreateModal from './UserCreateModal'
+import { UserRole } from '@/entities/user/types'
+import BranchEditModal from './BranchEditModal'
+import BranchCreateModal from './BranchCreateModal'
 
 const { Title, Text } = Typography
 const { Search } = Input
-const { Option } = Select
-const { RangePicker } = DatePicker
 
-const UserManagementTable: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([])
+const BranchManagementTable: React.FC = () => {
+  const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(false)
   const [searchText, setSearchText] = useState('')
-  // const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all')
-  // const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
-  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
   const [isEditModalVisible, setIsEditModalVisible] = useState(false)
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
   
@@ -54,64 +47,90 @@ const UserManagementTable: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(0) // zero-indexed
   const [pageSize, setPageSize] = useState(10)
   const [total, setTotal] = useState(0)
-  const [sortField, setSortField] = useState<'firstName' | 'lastName' | 'email' | 'role' | 'isActive' | 'createdAt' | 'branch' | undefined>(undefined)
+  const [sortField, setSortField] = useState<'name' | 'owner' | 'createdAt' | undefined>(undefined)
   const [sortOrder, setSortOrder] = useState<'ascend' | 'descend' | undefined>(undefined)
+  
+  // Owners list (fetched once and shared with modals)
+  const [owners, setOwners] = useState<User[]>([])
+  const [loadingOwners, setLoadingOwners] = useState(false)
 
-  const fetchUsers = async () => {
+  const fetchBranches = async () => {
     setLoading(true)
     try {
-      const response = await getUsers({
+      const response = await getBranches({
         page: currentPage,
         limit: pageSize,
         sortField,
         sortOrder,
         query: searchText || undefined
       })
-      setUsers(response.users)
-      setTotal(response.total)
+      
+      setBranches(response.branches || [])
+      setTotal(response.total || 0)
     } catch (error) {
-      message.error('Failed to fetch users')
+      message.error('Failed to fetch branches')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchUsers()
+    fetchBranches()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, sortField, sortOrder, searchText])
 
-  const handleDelete = async (id: string) => {
+  // Fetch owners once when component mounts
+  useEffect(() => {
+    fetchOwners()
+  }, [])
+
+  const fetchOwners = async () => {
+    setLoadingOwners(true)
     try {
-      await deleteUser(id)
-      message.success('User deleted successfully')
-      
-      // If deleting the last item on the current page (and not on page 0), go to previous page
-      if (users.length === 1 && currentPage > 0) {
-        setCurrentPage(currentPage - 1)
-      } else {
-        // Otherwise just refresh the current page
-        fetchUsers()
-      }
+      const response = await getUsers({ limit: 100 })
+      // Filter users who can be owners (OWNER, HEAD_OWNER roles)
+      const eligibleOwners = response.users.filter(
+        user => user.role === UserRole.OWNER || user.role === UserRole.HEAD_OWNER
+      )
+      setOwners(eligibleOwners)
     } catch (error) {
-      message.error('Failed to delete user')
+      message.error('Failed to fetch owners')
+    } finally {
+      setLoadingOwners(false)
     }
   }
 
-  const handleEdit = (user: User) => {
-    setEditingUser(user)
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteBranch(id)
+      message.success('Branch deleted successfully')
+      
+      // If deleting the last item on the current page (and not on page 0), go to previous page
+      if (branches.length === 1 && currentPage > 0) {
+        setCurrentPage(currentPage - 1)
+      } else {
+        // Otherwise just refresh the current page
+        fetchBranches()
+      }
+    } catch (error) {
+      message.error('Failed to delete branch')
+    }
+  }
+
+  const handleEdit = (branch: Branch) => {
+    setEditingBranch(branch)
     setIsEditModalVisible(true)
   }
 
   const handleEditSuccess = () => {
     setIsEditModalVisible(false)
-    setEditingUser(null)
-    fetchUsers()
+    setEditingBranch(null)
+    fetchBranches()
   }
 
   const handleCreateSuccess = () => {
     setIsCreateModalVisible(false)
-    fetchUsers()
+    fetchBranches()
   }
 
   // Handle search with debouncing
@@ -149,92 +168,73 @@ const UserManagementTable: React.FC = () => {
     }
   }
 
-  const getRoleColor = (role: UserRole) => {
-    const colors = {
-      [UserRole.OWNER]: 'red',
-      [UserRole.HEAD_OWNER]: 'magenta',
-      [UserRole.HEAD_ACCOUNTANT]: 'purple',
-      [UserRole.ACCOUNTANT]: 'blue',
-      [UserRole.AGENT]: 'green',
-      [UserRole.CARRIER]: 'orange'
-    }
-    return colors[role]
-  }
-
-  // No client-side filtering - using server-side search instead
-  const filteredUsers = users || []
+  const filteredBranches = branches || []
 
   const stats = {
     total: total,
-    active: (users || []).filter(u => u.isActive).length,
-    inactive: (users || []).filter(u => !u.isActive).length,
-    owners: (users || []).filter(u => u.role === UserRole.OWNER).length,
-    headOwners: (users || []).filter(u => u.role === UserRole.HEAD_OWNER).length,
-    headAccountants: (users || []).filter(u => u.role === UserRole.HEAD_ACCOUNTANT).length,
-    accountants: (users || []).filter(u => u.role === UserRole.ACCOUNTANT).length,
-    agents: (users || []).filter(u => u.role === UserRole.AGENT).length,
-    carriers: (users || []).filter(u => u.role === UserRole.CARRIER).length
+    withOwner: (branches || []).filter(b => b.owner !== null).length,
+    withoutOwner: (branches || []).filter(b => b.owner === null).length
   }
 
-  const columns: ColumnsType<User> = [
+  const columns: ColumnsType<Branch> = [
     {
-      title: 'Name',
-      dataIndex: 'firstName',
-      key: 'firstName',
-      render: (_, record) => (
+      title: 'Branch Name',
+      dataIndex: 'name',
+      key: 'name',
+      render: (name: string) => (
         <Space>
-          <UserOutlined />
-          <div>
-            <div style={{ fontWeight: 500 }}>{record.firstName} {record.lastName}</div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>{record.email}</Text>
-          </div>
+          <BankOutlined />
+          <span style={{ fontWeight: 500 }}>{name}</span>
         </Space>
       ),
       sorter: true,
-      sortOrder: sortField === 'firstName' ? sortOrder : undefined
+      sortOrder: sortField === 'name' ? sortOrder : undefined
     },
     {
-      title: 'Role',
-      dataIndex: 'role',
-      key: 'role',
-      render: (role: UserRole) => (
-        <Tag color={getRoleColor(role)}>
-          {USER_ROLE_LABELS[role]}
-        </Tag>
+      title: 'Owner',
+      dataIndex: 'owner',
+      key: 'owner',
+      render: (owner) => (
+        owner ? (
+          <Space>
+            <UserOutlined />
+            <div>
+              <div style={{ fontWeight: 500 }}>
+                {owner.firstName} {owner.lastName}
+              </div>
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                {owner.email}
+              </Text>
+            </div>
+          </Space>
+        ) : (
+          <Tag color="default">No Owner</Tag>
+        )
       ),
       sorter: true,
-      sortOrder: sortField === 'role' ? sortOrder : undefined
+      sortOrder: sortField === 'owner' ? sortOrder : undefined
     },
     {
-      title: 'Branch',
-      dataIndex: 'branchName',
-      key: 'branch',
-      render: (branchName, record) => {
-        // Support both formats: branch.name or branchName
-        const displayName = record.branch?.name || branchName || 'N/A'
-        return displayName
-      },
-      sorter: true,
-      sortOrder: sortField === 'branch' ? sortOrder : undefined
+      title: 'Contact',
+      dataIndex: 'contact',
+      key: 'contact',
+      render: (contact: string | null) => (
+        contact ? (
+          <Tooltip title={contact}>
+            <Text ellipsis style={{ maxWidth: 200, display: 'block' }}>
+              {contact}
+            </Text>
+          </Tooltip>
+        ) : (
+          <Tag color="default">No Contact</Tag>
+        )
+      )
     },
     {
-      title: 'Status',
-      dataIndex: 'isActive',
-      key: 'isActive',
-      render: (isActive: boolean) => (
-        <Badge
-          status={isActive ? 'success' : 'error'}
-          text={isActive ? 'Active' : 'Inactive'}
-        />
-      ),
-      sorter: true,
-      sortOrder: sortField === 'isActive' ? sortOrder : undefined
-    },
-    {
-      title: 'Registered Date',
-      dataIndex: 'registeredDate',
+      title: 'Created Date',
+      dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (date: string) => new Date(date).toLocaleDateString(),
+      render: (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A',
       sorter: true,
       sortOrder: sortField === 'createdAt' ? sortOrder : undefined
     },
@@ -243,7 +243,7 @@ const UserManagementTable: React.FC = () => {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Tooltip title="Edit User">
+          <Tooltip title="Edit Branch">
             <Button
               type="text"
               icon={<EditOutlined />}
@@ -251,13 +251,13 @@ const UserManagementTable: React.FC = () => {
             />
           </Tooltip>
           <Popconfirm
-            title="Are you sure you want to delete this user?"
-            description="This action cannot be undone."
+            title="Are you sure you want to delete this branch?"
+            description="This action cannot be undone. All associated data may be affected."
             onConfirm={() => handleDelete(record.id)}
             okText="Yes"
             cancelText="No"
           >
-            <Tooltip title="Delete User">
+            <Tooltip title="Delete Branch">
               <Button
                 type="text"
                 danger
@@ -274,41 +274,30 @@ const UserManagementTable: React.FC = () => {
     <div>
       {/* Statistics Cards */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} md={6}>
+        <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic
-              title="Total Users"
+              title="Total Branches"
               value={stats.total}
-              prefix={<UserOutlined />}
+              prefix={<BankOutlined />}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
+        <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic
-              title="Active Users"
-              value={stats.active}
-              prefix={<CheckCircleOutlined />}
+              title="With Owner"
+              value={stats.withOwner}
               valueStyle={{ color: '#3f8600' }}
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6}>
+        <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic
-              title="Inactive Users"
-              value={stats.inactive}
-              prefix={<CloseCircleOutlined />}
+              title="Without Owner"
+              value={stats.withoutOwner}
               valueStyle={{ color: '#cf1322' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Owners"
-              value={stats.owners}
-              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>
@@ -319,21 +308,21 @@ const UserManagementTable: React.FC = () => {
         <div style={{ marginBottom: 16 }}>
           <Row justify="space-between" align="middle">
             <Col>
-              <Title level={4} style={{ margin: 0 }}>User Management</Title>
-              <Text type="secondary">Manage users, roles, and permissions</Text>
+              <Title level={4} style={{ margin: 0 }}>Branch Management</Title>
+              <Text type="secondary">Manage branches and their owners</Text>
             </Col>
             <Col>
               <Space>
-                {/* <Button
+                <Button
                   type="primary"
-                  icon={<UserAddOutlined />}
+                  icon={<PlusOutlined />}
                   onClick={() => setIsCreateModalVisible(true)}
                 >
-                  Add User
-                </Button> */}
+                  Add Branch
+                </Button>
                 <Button
                   icon={<ReloadOutlined />}
-                  onClick={fetchUsers}
+                  onClick={fetchBranches}
                   loading={loading}
                 >
                   Refresh
@@ -347,7 +336,7 @@ const UserManagementTable: React.FC = () => {
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={8}>
             <Search
-              placeholder="Search users..."
+              placeholder="Search branches..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               prefix={<SearchOutlined />}
@@ -358,7 +347,7 @@ const UserManagementTable: React.FC = () => {
 
         <Table
           columns={columns}
-          dataSource={filteredUsers}
+          dataSource={filteredBranches}
           rowKey="id"
           loading={loading}
           onChange={handleTableChange}
@@ -368,7 +357,7 @@ const UserManagementTable: React.FC = () => {
             total: total,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} users`,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} branches`,
             pageSizeOptions: ['5', '10', '20', '50', '100']
           }}
           scroll={{ x: 800 }}
@@ -376,20 +365,24 @@ const UserManagementTable: React.FC = () => {
       </Card>
 
       {/* Modals */}
-      {editingUser && (
-        <UserEditModal
-          user={editingUser}
+      {editingBranch && (
+        <BranchEditModal
+          branch={editingBranch}
           visible={isEditModalVisible}
+          owners={owners}
+          loadingOwners={loadingOwners}
           onCancel={() => {
             setIsEditModalVisible(false)
-            setEditingUser(null)
+            setEditingBranch(null)
           }}
           onSuccess={handleEditSuccess}
         />
       )}
 
-      <UserCreateModal
+      <BranchCreateModal
         visible={isCreateModalVisible}
+        owners={owners}
+        loadingOwners={loadingOwners}
         onCancel={() => setIsCreateModalVisible(false)}
         onSuccess={handleCreateSuccess}
       />
@@ -397,4 +390,5 @@ const UserManagementTable: React.FC = () => {
   )
 }
 
-export default UserManagementTable
+export default BranchManagementTable
+

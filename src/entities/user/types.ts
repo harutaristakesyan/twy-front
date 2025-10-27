@@ -61,8 +61,8 @@ export interface SelfUpdateRequest {
 export interface GetUsersParams {
   page?: number          // zero-indexed page number (default: 0)
   limit?: number         // number of users per page (default: 5)
-  sortField?: 'firstName' | 'lastName' | 'email' | 'role' | 'isActive' | 'createdAt' | 'branch'
-  sortOrder?: 'ascend' | 'descend'  // default: descend
+  sortField?: 'firstName' | 'lastName' | 'email' | 'role' | 'isActive' | 'createdAt' | 'branch' | undefined
+  sortOrder?: 'ascend' | 'descend' | undefined
   query?: string         // search text for firstName, lastName, email
 }
 
