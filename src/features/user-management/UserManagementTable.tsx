@@ -28,8 +28,8 @@ import {
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { UserRole, USER_ROLE_LABELS } from '@/entities/user/types'
-import type { User } from '@/entities/user/types'
-import { getUsers, deleteUser } from '@/entities/user/api'
+import type { User, CurrentUser } from '@/entities/user/types'
+import { getUsers, deleteUser, getCurrentUser } from '@/entities/user/api'
 import UserEditModal from './UserEditModal'
 import UserCreateModal from './UserCreateModal'
 
@@ -47,6 +47,7 @@ const UserManagementTable: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [isEditModalVisible, setIsEditModalVisible] = useState(false)
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0) // zero-indexed
@@ -73,6 +74,19 @@ const UserManagementTable: React.FC = () => {
       setLoading(false)
     }
   }
+
+  // Fetch current user on mount
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const userData = await getCurrentUser()
+        setCurrentUser(userData)
+      } catch (error) {
+        console.error('Failed to fetch current user:', error)
+      }
+    }
+    fetchCurrentUser()
+  }, [])
 
   useEffect(() => {
     fetchUsers()
@@ -229,11 +243,12 @@ const UserManagementTable: React.FC = () => {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Tooltip title="Edit User">
+          <Tooltip title={currentUser?.email === record.email ? "You cannot edit yourself" : "Edit User"}>
             <Button
               type="text"
               icon={<EditOutlined />}
               onClick={() => handleEdit(record)}
+              disabled={currentUser?.email === record.email}
             />
           </Tooltip>
           <Popconfirm
@@ -242,12 +257,14 @@ const UserManagementTable: React.FC = () => {
             onConfirm={() => handleDelete(record.id)}
             okText="Yes"
             cancelText="No"
+            disabled={currentUser?.email === record.email}
           >
-            <Tooltip title="Delete User">
+            <Tooltip title={currentUser?.email === record.email ? "You cannot delete yourself" : "Delete User"}>
               <Button
                 type="text"
                 danger
                 icon={<DeleteOutlined />}
+                disabled={currentUser?.email === record.email}
               />
             </Tooltip>
           </Popconfirm>
