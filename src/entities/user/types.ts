@@ -6,6 +6,7 @@ export interface User {
   isActive: boolean
   role: UserRole
   registeredDate: string
+  createdAt?: string  // New format from API
   branchId?: string  // For backward compatibility
   branchName?: string  // For backward compatibility
   branch?: {  // New format from API

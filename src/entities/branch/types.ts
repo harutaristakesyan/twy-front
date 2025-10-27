@@ -22,7 +22,7 @@ export interface UpdateBranchRequest {
   id: string
   name?: string
   contact?: string
-  owner?: string
+  owner: string  // Required: user ID
 }
 
 export interface GetBranchesParams {

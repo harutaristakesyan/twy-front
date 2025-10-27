@@ -216,7 +216,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
         <Form.Item
           name="branch"
           label="Branch"
-          rules={[{ required: false, message: 'Please select a branch' }]}
+          rules={[{ required: true, message: 'Please select a branch' }]}
         >
           <Select
             placeholder="Search and select branch"
@@ -226,7 +226,6 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
             onPopupScroll={handleBranchScroll}
             loading={loadingBranches}
             notFoundContent={loadingBranches ? <Spin size="small" /> : 'No branches found'}
-            allowClear
             optionLabelProp="label"
           >
             {branches.map(branch => (

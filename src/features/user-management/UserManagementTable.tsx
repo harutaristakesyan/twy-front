@@ -232,9 +232,12 @@ const UserManagementTable: React.FC = () => {
     },
     {
       title: 'Registered Date',
-      dataIndex: 'registeredDate',
+      dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (date: string) => new Date(date).toLocaleDateString(),
+      render: (date: string, record) => {
+        const dateToShow = date || record.registeredDate
+        return dateToShow ? new Date(dateToShow).toLocaleDateString() : 'N/A'
+      },
       sorter: true,
       sortOrder: sortField === 'createdAt' ? sortOrder : undefined
     },

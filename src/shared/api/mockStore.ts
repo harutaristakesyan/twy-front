@@ -37,7 +37,12 @@ class MockDataStore {
         id: 'branch2',
         name: 'West Side',
         contact: null,
-        owner: null,
+        owner: {
+          id: '2',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com'
+        },
         createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
         updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
       },
@@ -69,6 +74,7 @@ class MockDataStore {
         isActive: true,
         role: 'Owner' as UserRole,
         registeredDate: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         branchId: 'branch1',
         branchName: 'Main Branch'
       },
@@ -80,6 +86,7 @@ class MockDataStore {
         isActive: true,
         role: 'Head Accountant' as UserRole,
         registeredDate: new Date(Date.now() - 86400000).toISOString(),
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
         branchId: 'branch1',
         branchName: 'Main Branch'
       },
@@ -91,6 +98,7 @@ class MockDataStore {
         isActive: false,
         role: 'Agent' as UserRole,
         registeredDate: new Date(Date.now() - 172800000).toISOString(),
+        createdAt: new Date(Date.now() - 172800000).toISOString(),
         branchId: 'branch2',
         branchName: 'Secondary Branch'
       },
@@ -102,6 +110,7 @@ class MockDataStore {
         isActive: true,
         role: 'Carrier' as UserRole,
         registeredDate: new Date(Date.now() - 259200000).toISOString(),
+        createdAt: new Date(Date.now() - 259200000).toISOString(),
         branchId: 'branch3',
         branchName: 'Regional Branch'
       },
@@ -113,6 +122,7 @@ class MockDataStore {
         isActive: true,
         role: 'Head Owner' as UserRole,
         registeredDate: new Date(Date.now() - 345600000).toISOString(),
+        createdAt: new Date(Date.now() - 345600000).toISOString(),
         branchId: 'branch1',
         branchName: 'Main Branch'
       },
@@ -124,6 +134,7 @@ class MockDataStore {
         isActive: true,
         role: 'Accountant' as UserRole,
         registeredDate: new Date(Date.now() - 432000000).toISOString(),
+        createdAt: new Date(Date.now() - 432000000).toISOString(),
         branchId: 'branch2',
         branchName: 'Secondary Branch'
       }
@@ -189,8 +200,8 @@ class MockDataStore {
           break
         case 'createdAt':
         default:
-          aValue = new Date(a.registeredDate).getTime()
-          bValue = new Date(b.registeredDate).getTime()
+          aValue = new Date(a.createdAt || a.registeredDate).getTime()
+          bValue = new Date(b.createdAt || b.registeredDate).getTime()
           break
       }
 
@@ -235,6 +246,7 @@ class MockDataStore {
       isActive: data.isActive,
       role: data.role,
       registeredDate: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       branchId: data.branch, // For backward compatibility
       branchName: this.getBranchName(data.branch)
     }

@@ -170,11 +170,6 @@ const BranchManagementTable: React.FC = () => {
 
   const filteredBranches = branches || []
 
-  const stats = {
-    total: total,
-    withOwner: (branches || []).filter(b => b.owner !== null).length,
-    withoutOwner: (branches || []).filter(b => b.owner === null).length
-  }
 
   const columns: ColumnsType<Branch> = [
     {
@@ -272,32 +267,14 @@ const BranchManagementTable: React.FC = () => {
 
   return (
     <div>
-      {/* Statistics Cards */}
+      {/* Statistics Card */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} md={8}>
+        <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
               title="Total Branches"
-              value={stats.total}
+              value={total}
               prefix={<BankOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card>
-            <Statistic
-              title="With Owner"
-              value={stats.withOwner}
-              valueStyle={{ color: '#3f8600' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card>
-            <Statistic
-              title="Without Owner"
-              value={stats.withoutOwner}
-              valueStyle={{ color: '#cf1322' }}
             />
           </Card>
         </Col>
