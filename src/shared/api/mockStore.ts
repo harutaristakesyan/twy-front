@@ -235,8 +235,8 @@ class MockDataStore {
       isActive: data.isActive,
       role: data.role,
       registeredDate: new Date().toISOString(),
-      branchId: data.branchId,
-      branchName: this.getBranchName(data.branchId)
+      branchId: data.branch, // For backward compatibility
+      branchName: this.getBranchName(data.branch)
     }
     this.users.push(newUser)
     console.log('✅ User added to mock store:', newUser)
@@ -244,16 +244,26 @@ class MockDataStore {
     return newUser
   }
 
-  updateUser(id: string, data: Partial<User>): User | null {
+  updateUser(id: string, data: any): User | null {
     const index = this.users.findIndex(user => user.id === id)
     if (index === -1) return null
 
+    // Handle branch field (new) and branchId (legacy) for backward compatibility
+    const branchId = data.branch || data.branchId
+    
     this.users[index] = {
       ...this.users[index],
       ...data,
       id, // Ensure id doesn't change
-      branchName: data.branchId ? this.getBranchName(data.branchId) : this.users[index].branchName
+      branchId: branchId || this.users[index].branchId,
+      branchName: branchId ? this.getBranchName(branchId) : this.users[index].branchName
     }
+    
+    // Remove the 'branch' field if it exists (it's sent in request but not stored)
+    if ('branch' in this.users[index]) {
+      delete (this.users[index] as any).branch
+    }
+    
     return this.users[index]
   }
 

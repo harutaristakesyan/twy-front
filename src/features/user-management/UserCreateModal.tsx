@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Modal,
   Form,
@@ -8,11 +8,14 @@ import {
   Button,
   Space,
   message,
-  Alert
+  Alert,
+  Spin
 } from 'antd'
 import { UserRole, USER_ROLE_LABELS } from '@/entities/user/types'
 import type { UserFormData } from '@/entities/user/types'
 import { createUser } from '@/entities/user/api'
+import { getBranches } from '@/entities/branch/api'
+import type { Branch } from '@/entities/branch/types'
 
 const { Option } = Select
 
@@ -30,6 +33,55 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
 
+  // Branch select state
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [loadingBranches, setLoadingBranches] = useState(false)
+  const [branchPage, setBranchPage] = useState(0)
+  const [branchTotal, setBranchTotal] = useState(0)
+  const [branchSearch, setBranchSearch] = useState('')
+  const [hasMoreBranches, setHasMoreBranches] = useState(true)
+  const branchSearchTimeoutRef = useRef<NodeJS.Timeout>()
+  const isInitialFetchRef = useRef(false)
+
+  // Fetch branches
+  const fetchBranches = async (page: number, search: string, append: boolean = false) => {
+    setLoadingBranches(true)
+    try {
+      const response = await getBranches({
+        page,
+        limit: 20,
+        query: search || undefined
+      })
+      
+      if (append) {
+        setBranches(prev => [...prev, ...response.branches])
+      } else {
+        setBranches(response.branches)
+      }
+      
+      setBranchTotal(response.total)
+      setHasMoreBranches((page + 1) * 20 < response.total)
+    } catch (error) {
+      message.error('Failed to fetch branches')
+    } finally {
+      setLoadingBranches(false)
+    }
+  }
+
+  // Load initial branches when modal opens
+  useEffect(() => {
+    if (visible && !isInitialFetchRef.current) {
+      isInitialFetchRef.current = true
+      setBranchPage(0)
+      setBranchSearch('')
+      setHasMoreBranches(true)
+      fetchBranches(0, '')
+    } else if (!visible) {
+      isInitialFetchRef.current = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible])
+
   const handleSubmit = async (values: UserFormData) => {
     setLoading(true)
     try {
@@ -46,7 +98,35 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
 
   const handleCancel = () => {
     form.resetFields()
+    setBranches([])
+    setBranchPage(0)
+    setBranchSearch('')
     onCancel()
+  }
+
+  // Handle branch search
+  const handleBranchSearch = (value: string) => {
+    if (branchSearchTimeoutRef.current) {
+      clearTimeout(branchSearchTimeoutRef.current)
+    }
+
+    branchSearchTimeoutRef.current = setTimeout(() => {
+      setBranchSearch(value)
+      setBranchPage(0)
+      fetchBranches(0, value, false)
+    }, 300)
+  }
+
+  // Handle branch select scroll (infinite scroll)
+  const handleBranchScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement
+    const isBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - 10
+
+    if (isBottom && !loadingBranches && hasMoreBranches) {
+      const nextPage = branchPage + 1
+      setBranchPage(nextPage)
+      fetchBranches(nextPage, branchSearch, true)
+    }
   }
 
   return (
@@ -119,15 +199,39 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
         </Form.Item>
 
         <Form.Item
-          name="branchId"
+          name="branch"
           label="Branch"
           rules={[{ required: true, message: 'Please select a branch' }]}
         >
-          <Select placeholder="Select branch">
-            {/* This would be populated from branches API */}
-            <Option value="branch1">Main Branch</Option>
-            <Option value="branch2">Secondary Branch</Option>
-            <Option value="branch3">Regional Branch</Option>
+          <Select
+            placeholder="Search and select branch"
+            showSearch
+            filterOption={false}
+            onSearch={handleBranchSearch}
+            onPopupScroll={handleBranchScroll}
+            loading={loadingBranches}
+            notFoundContent={loadingBranches ? <Spin size="small" /> : 'No branches found'}
+            optionLabelProp="label"
+          >
+            {branches.map(branch => (
+              <Option key={branch.id} value={branch.id} label={branch.name}>
+                <div>
+                  <div style={{ fontWeight: 500 }}>{branch.name}</div>
+                  {branch.owner && (
+                    <div style={{ fontSize: '12px', color: '#888' }}>
+                      Owner: {branch.owner.firstName} {branch.owner.lastName}
+                    </div>
+                  )}
+                </div>
+              </Option>
+            ))}
+            {loadingBranches && hasMoreBranches && (
+              <Option key="loading" disabled>
+                <div style={{ textAlign: 'center', padding: '8px' }}>
+                  <Spin size="small" /> Loading more...
+                </div>
+              </Option>
+            )}
           </Select>
         </Form.Item>
 

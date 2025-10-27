@@ -24,9 +24,7 @@ import {
   SearchOutlined,
   FilterOutlined,
   ReloadOutlined,
-  UserOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined
+  UserOutlined
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { UserRole, USER_ROLE_LABELS } from '@/entities/user/types'
@@ -164,18 +162,6 @@ const UserManagementTable: React.FC = () => {
   // No client-side filtering - using server-side search instead
   const filteredUsers = users || []
 
-  const stats = {
-    total: total,
-    active: (users || []).filter(u => u.isActive).length,
-    inactive: (users || []).filter(u => !u.isActive).length,
-    owners: (users || []).filter(u => u.role === UserRole.OWNER).length,
-    headOwners: (users || []).filter(u => u.role === UserRole.HEAD_OWNER).length,
-    headAccountants: (users || []).filter(u => u.role === UserRole.HEAD_ACCOUNTANT).length,
-    accountants: (users || []).filter(u => u.role === UserRole.ACCOUNTANT).length,
-    agents: (users || []).filter(u => u.role === UserRole.AGENT).length,
-    carriers: (users || []).filter(u => u.role === UserRole.CARRIER).length
-  }
-
   const columns: ColumnsType<User> = [
     {
       title: 'Name',
@@ -272,43 +258,14 @@ const UserManagementTable: React.FC = () => {
 
   return (
     <div>
-      {/* Statistics Cards */}
+      {/* Statistics Card */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
               title="Total Users"
-              value={stats.total}
+              value={total}
               prefix={<UserOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Active Users"
-              value={stats.active}
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#3f8600' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Inactive Users"
-              value={stats.inactive}
-              prefix={<CloseCircleOutlined />}
-              valueStyle={{ color: '#cf1322' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Owners"
-              value={stats.owners}
-              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>

@@ -43,12 +43,12 @@ export interface UserFormData {
   email: string
   isActive: boolean
   role: UserRole
-  branchId: string
+  branch: string // Branch ID
 }
 
 export interface UpdateUserRequest {
   id: string
-  branchId?: string
+  branch?: string // Branch ID
   role?: UserRole
   isActive?: boolean
 }
