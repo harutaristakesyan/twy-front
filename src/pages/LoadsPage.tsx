@@ -1,10 +1,14 @@
 import React from 'react'
-import { Flex } from 'antd'
+import { Flex, Typography } from 'antd'
+import { LoadManagementTable } from '@/features/load-management'
+
+const { Title } = Typography
 
 const LoadsPage: React.FC = () => {
   return (
     <Flex vertical gap={24}>
-      <h1>Loads</h1>
+      <Title level={2}>Loads Management</Title>
+      <LoadManagementTable />
     </Flex>
   )
 }
