@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   Table,
   Button,
@@ -36,6 +37,7 @@ const { Title, Text } = Typography
 const { Search } = Input
 
 const BranchManagementTable: React.FC = () => {
+  const location = useLocation()
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(false)
   const [searchText, setSearchText] = useState('')
@@ -53,8 +55,42 @@ const BranchManagementTable: React.FC = () => {
   // Owners list (fetched once and shared with modals)
   const [owners, setOwners] = useState<User[]>([])
   const [loadingOwners, setLoadingOwners] = useState(false)
+  const hasMountedRef = useRef(false)
+  const isFetchingRef = useRef(false)
+  const locationRef = useRef(location.pathname)
+
+  // Reset fetch guard when route changes and abort any in-flight fetches
+  useEffect(() => {
+    if (locationRef.current !== location.pathname) {
+      locationRef.current = location.pathname
+      isFetchingRef.current = false
+      // Reset mounted flag so we can fetch when coming back to this page
+      if (location.pathname === '/branches') {
+        hasMountedRef.current = false
+      } else {
+        // Reset loading state if we navigated away
+        setLoading(false)
+      }
+    }
+  }, [location.pathname])
 
   const fetchBranches = async () => {
+    // CRITICAL: Only fetch if we're on the branches page - check first!
+    if (location.pathname !== '/branches') {
+      return
+    }
+    
+    // Double-check location before proceeding (component might be stale)
+    if (locationRef.current !== '/branches') {
+      return
+    }
+    
+    // Skip if already fetching (prevents double calls in StrictMode)
+    if (isFetchingRef.current) {
+      return
+    }
+    
+    isFetchingRef.current = true
     setLoading(true)
     try {
       const response = await getBranches({
@@ -65,24 +101,55 @@ const BranchManagementTable: React.FC = () => {
         query: searchText || undefined
       })
       
+      // Final safety check - only update if still on branches page
+      if (location.pathname !== '/branches' || locationRef.current !== '/branches') {
+        return
+      }
+      
       setBranches(response.branches || [])
       setTotal(response.total || 0)
     } catch (error) {
-      message.error('Failed to fetch branches')
+      // Only show error if still on branches page
+      if (location.pathname === '/branches' && locationRef.current === '/branches') {
+        message.error('Failed to fetch branches')
+      }
     } finally {
-      setLoading(false)
+      // Only update loading state if still on branches page
+      if (location.pathname === '/branches' && locationRef.current === '/branches') {
+        setLoading(false)
+      }
+      isFetchingRef.current = false
     }
   }
 
   useEffect(() => {
-    fetchBranches()
+    // Only fetch if we're on the branches page
+    if (location.pathname !== '/branches') {
+      return
+    }
+    
+    let cancelled = false
+    
+    const doFetch = async () => {
+      if (cancelled) return
+      await fetchBranches()
+    }
+    
+    doFetch()
+    
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, sortField, sortOrder, searchText])
+  }, [location.pathname, currentPage, pageSize, sortField, sortOrder, searchText])
 
-  // Fetch owners once when component mounts
+  // Fetch owners once when component mounts (only on branches page)
   useEffect(() => {
+    if (location.pathname !== '/branches') return;
+    if (hasMountedRef.current) return;
+    hasMountedRef.current = true;
     fetchOwners()
-  }, [])
+  }, [location.pathname])
 
   const fetchOwners = async () => {
     setLoadingOwners(true)

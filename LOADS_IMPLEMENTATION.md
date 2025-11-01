@@ -21,97 +21,70 @@ Complete file management system with:
 
 ### 3. Load Management Features (`src/features/load-management/`)
 
-#### **LoadCreateModal.tsx**
-Multi-step wizard with 7 steps:
-1. Customer Information (customer, reference number, customer rate, contact name)
-2. Carrier Information (carrier, payment method, carrier rate)
+#### **CreateLoadPage.tsx** (`src/pages/CreateLoadPage.tsx`)
+Seven-step wizard that captures the full Load payload as described in the Functions documentation:
+1. Customer Information (customer, reference number, optional customer rate, contact name)
+2. Carrier Information (optional carrier and payment method, optional carrier rate)
 3. Service Information (service fee toggle, load type, service type, service given as, commodity)
-4. Booking Information (booked as, sold as, weight, temperature)
-5. Pick-up Location (city/zip, phone, carrier, name, address)
-6. Drop-off Location (city/zip, phone, carrier, name, address)
-7. Files (multiple file uploads with S3 integration)
+4. Booking Information (booked as, sold as, weight, optional temperature)
+5. Pick-up Location (city/zip, phone optional, carrier/name/address required)
+6. Drop-off Location (city/zip, phone optional, carrier/name/address required)
+7. Files (multiple uploads; stores `{ id, fileName }` pairs for the API)
 
-Features:
-- Step-by-step validation
-- Next/Previous navigation
-- Form state persistence across steps
-- Multiple file upload support
-- Real-time file upload to S3
+Key behaviours:
+- Nested Ant Design form fields align with backend `pickup` / `dropoff` objects
+- Numeric fields are normalised to numbers or null before submission
+- Optional strings become `null` when cleared to signal a field reset
+- Uploaded files are tracked as `{ id, fileName }` objects and surfaced to the payload under `files`
 
 #### **LoadEditModal.tsx**
-Same multi-step wizard as create, but:
-- Loads existing load data
-- Pre-fills all form fields
-- Shows existing uploaded files
-- Allows adding/removing files
+Reuses the wizard flow for editing:
+- Pre-populates the form with nested pickup/dropoff data
+- Renders existing file attachments and supports removals
+- Sends the complete payload (including empty `files` array) to honour the API contract
 
 #### **LoadManagementTable.tsx**
-Comprehensive table with:
-- Display all loads with key information
-- Search functionality (customer, reference, contact, carrier, commodity)
-- Sortable columns
-- Actions: Edit and Delete
-- File count indicator
-- Responsive design with horizontal scroll
-- Pagination with customizable page size
+Server-backed grid with:
+- Integration against `/loads` pagination, search, and sorting (reference, status, createdAt, customer)
+- Status column with workflow highlighting (Pending, Approved, Denied)
+- Nested pickup/dropoff display
+- Currency rendering for carrier/customer rates
+- Edit/Delete actions per row
+- Search input driving API query parameter rather than client-side filtering
 
-### 4. Updated LoadsPage (`src/pages/LoadsPage.tsx`)
-- Integrated LoadManagementTable
-- Clean layout with Ant Design components
+### 4. Loads Page (`src/pages/LoadsPage.tsx`)
+- Hosts the management table within the app layout
+- Provides entrypoint button to the create flow
 
 ## Data Structure
 
-### Load Fields (30+ fields organized in 7 sections):
+### Load Payload Mapping
 
-**Customer Information:**
-- customer* (required)
-- referenceNumber* (required)
-- customerRate (optional)
-- contactName* (required)
+- `customer`, `referenceNumber`, `contactName` (required strings)
+- `customerRate`, `carrierRate` (optional decimals; omitted or `null` clears existing values)
+- `carrier`, `carrierPaymentMethod` (optional strings)
+- `chargeServiceFeeToOffice` (boolean switch)
+- `loadType`, `serviceType`, `serviceGivenAs`, `commodity`, `bookedAs`, `soldAs`, `weight` (required strings)
+- `temperature` (optional string)
+- `pickup` / `dropoff` objects:
+  - `carrier`, `name`, `address` (required)
+  - `cityZipCode`, `phone` (optional; emit `null` to clear)
+- `files` array of `{ id, fileName }` items – aligns with the Files service contract
+- Server-managed read-only fields: `branchId`, `status`, `statusChangedBy`, timestamps
 
-**Carrier Information:**
-- carrier (optional)
-- carrierPaymentMethod (optional)
-- carrierRate* (required)
-
-**Service Information:**
-- chargeServiceFeeToOffice (boolean)
-- loadType* (required)
-- serviceType* (required)
-- serviceGivenAs* (required)
-- commodity* (required)
-
-**Booking Information:**
-- bookedAs* (required)
-- soldAs* (required)
-- weight* (required)
-- temperature (optional)
-
-**Pick-up Location:**
-- pickupCityZipcode (optional)
-- pickupPhoneNumber (optional)
-- pickupSelectCarrier* (required)
-- pickupName* (required)
-- pickupAddress* (required)
-
-**Drop-off Location:**
-- dropoffCityZipcode (optional)
-- dropoffPhoneNumber (optional)
-- dropoffSelectCarrier* (required)
-- dropoffName* (required)
-- dropoffAddress* (required)
-
-**Additional Fields:**
-- fileIds[] (array of file IDs from S3)
+### Status Workflow
+- Enum stored in `LoadStatus` type: `Pending`, `Approved`, `Denied`
+- Default status is `Pending`; `/loads/{id}/status` endpoint handles transitions and audit metadata
 
 ## API Integration
 
 ### Load Endpoints
-- `GET /loads` - Get all loads
-- `GET /loads/:id` - Get load by ID
-- `POST /loads` - Create new load
-- `PATCH /loads/:id` - Update load
-- `DELETE /loads/:id` - Delete load
+- `GET /loads` – Paginated listing with optional `page`, `limit`, `sortField`, `sortOrder`, `query`
+- `GET /loads/{loadId}` – Retrieve a single load with nested pickup/dropoff and files
+- `POST /loads` – Create; accepts full payload (files optional)
+- `PUT /loads/{loadId}` – Update; send only the fields you wish to change (empty `files` array detaches all attachments)
+- `PATCH /loads/{loadId}/status` – Update workflow status (Pending ⇄ Approved ⇄ Denied)
+- `DELETE /loads/{loadId}` – Remove load and join-table links (files remain available globally)
 
 ### File Endpoints
 - `POST /files` - Request upload URL
@@ -125,8 +98,7 @@ Comprehensive table with:
 ✅ Multiple file uploads to S3
 ✅ File management (upload, download, delete)
 ✅ CRUD operations (Create, Read, Update, Delete)
-✅ Search and filter functionality
-✅ Responsive table with pagination
+✅ Server-side search, sorting, and pagination
 ✅ Error handling and user feedback
 ✅ Loading states
 ✅ Confirmation dialogs for destructive actions
@@ -148,7 +120,7 @@ As discussed, the following can be adjusted later:
 
 5. Add advanced filters and sorting
 
-6. Add load status tracking (pending, in-transit, delivered, etc.)
+6. Add UI controls for the status change endpoint (Approve / Deny actions)
 
 ## File Structure
 ```

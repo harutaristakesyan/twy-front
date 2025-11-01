@@ -7,7 +7,7 @@ const { Title } = Typography
 const LoadsPage: React.FC = () => {
   return (
     <Flex vertical gap={24}>
-      <Title level={2}>Loads Management</Title>
+      <Title level={2} >Loads Management</Title>
       <LoadManagementTable />
     </Flex>
   )

@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Modal, Steps, Form, Input, Button, Space, Switch, Upload, Spin, App } from 'antd';
+import { Modal, Steps, Form, Input, Button, Space, Switch, Upload, App } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
-import { loadApi, type Load, type UpdateLoadDto } from '@/entities/load';
+import { loadApi, type Load, type UpdateLoadDto, type LoadFile } from '@/entities/load';
 import { fileApi } from '@/shared/api/fileApi';
 
 interface LoadEditModalProps {
   open: boolean;
-  loadId: string | null;
+  load: Load | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export const LoadEditModal: React.FC<LoadEditModalProps> = ({
   open,
-  loadId,
+  load,
   onClose,
   onSuccess,
 }) => {
@@ -22,10 +22,8 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
   const [form] = Form.useForm();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
-  const [uploadedFileIds, setUploadedFileIds] = useState<string[]>([]);
-  const [loadData, setLoadData] = useState<Load | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<LoadFile[]>([]);
 
   const steps = [
     { title: 'Customer', description: 'Customer Information' },
@@ -38,37 +36,40 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
   ];
 
   useEffect(() => {
-    if (open && loadId) {
-      fetchLoadData();
-    }
-  }, [open, loadId]);
+    if (open && load) {
+      const {
+        files = [],
+        branchId,
+        status,
+        statusChangedBy,
+        createdAt,
+        updatedAt,
+        ...formValues
+      } = load;
 
-  const fetchLoadData = async () => {
-    if (!loadId) return;
+      form.setFieldsValue({
+        ...formValues,
+        customerRate: load.customerRate != null ? String(load.customerRate) : undefined,
+        carrierRate: load.carrierRate != null ? String(load.carrierRate) : undefined,
+        temperature: load.temperature ?? undefined,
+      });
 
-    try {
-      setInitialLoading(true);
-      const data = await loadApi.getById(loadId);
-      setLoadData(data);
-      form.setFieldsValue(data);
-      
-      // Set existing files
-      if (data.fileIds && data.fileIds.length > 0) {
-        setUploadedFileIds(data.fileIds);
-        const files: UploadFile[] = data.fileIds.map((id, index) => ({
-          uid: id,
-          name: `File ${index + 1}`,
-          status: 'done',
-        }));
-        setFileList(files);
-      }
-    } catch (error) {
-      console.error('Failed to fetch load data:', error);
-      message.error('Failed to load data');
-    } finally {
-      setInitialLoading(false);
+      setUploadedFiles(files);
+      const fileItems: UploadFile[] = files.map((file) => ({
+        uid: file.id,
+        name: file.fileName,
+        status: 'done',
+      }));
+      setFileList(fileItems);
     }
-  };
+
+    if (!open) {
+      form.resetFields();
+      setCurrentStep(0);
+      setFileList([]);
+      setUploadedFiles([]);
+    }
+  }, [open, load, form]);
 
   const handleNext = async () => {
     try {
@@ -84,19 +85,65 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!loadId) return;
+    if (!load) return;
 
     try {
       setLoading(true);
       await form.validateFields();
 
-      const values = form.getFieldsValue();
-      const payload: UpdateLoadDto = {
-        ...values,
-        fileIds: uploadedFileIds,
+      const values = form.getFieldsValue(true);
+      const pickup = values.pickup || {};
+      const dropoff = values.dropoff || {};
+
+      const toNumberOrNull = (value?: string): number | null | undefined => {
+        if (value === undefined) return undefined;
+        if (value === null || value === '') return null;
+        const parsed = Number(value);
+        return Number.isNaN(parsed) ? null : parsed;
       };
 
-      await loadApi.update(loadId, payload);
+      const toNullableString = (value?: string): string | null | undefined => {
+        if (value === undefined) return undefined;
+        if (value === null) return null;
+        const trimmed = value.trim();
+        return trimmed.length ? trimmed : null;
+      };
+
+      const payload: UpdateLoadDto = {
+        customer: values.customer,
+        referenceNumber: values.referenceNumber,
+        customerRate: toNumberOrNull(values.customerRate),
+        contactName: values.contactName,
+        carrier: toNullableString(values.carrier),
+        carrierPaymentMethod: toNullableString(values.carrierPaymentMethod),
+        carrierRate: toNumberOrNull(values.carrierRate),
+        chargeServiceFeeToOffice: values.chargeServiceFeeToOffice ?? false,
+        loadType: values.loadType,
+        serviceType: values.serviceType,
+        serviceGivenAs: values.serviceGivenAs,
+        commodity: values.commodity,
+        bookedAs: values.bookedAs,
+        soldAs: values.soldAs,
+        weight: values.weight,
+        temperature: toNullableString(values.temperature),
+        pickup: {
+          cityZipCode: toNullableString(pickup.cityZipCode),
+          phone: toNullableString(pickup.phone),
+          carrier: pickup.carrier,
+          name: pickup.name,
+          address: pickup.address,
+        },
+        dropoff: {
+          cityZipCode: toNullableString(dropoff.cityZipCode),
+          phone: toNullableString(dropoff.phone),
+          carrier: dropoff.carrier,
+          name: dropoff.name,
+          address: dropoff.address,
+        },
+        files: uploadedFiles,
+      };
+
+      await loadApi.update(load.id, payload);
       message.success('Load updated successfully');
       handleClose();
       onSuccess();
@@ -112,51 +159,60 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
     form.resetFields();
     setCurrentStep(0);
     setFileList([]);
-    setUploadedFileIds([]);
-    setLoadData(null);
+    setUploadedFiles([]);
     onClose();
   };
 
-  const handleFileUpload = async (file: File): Promise<boolean> => {
+  const handleFileUpload = async (file: File): Promise<UploadFile | null> => {
     try {
       message.loading({ content: 'Uploading file...', key: 'upload' });
       const fileId = await fileApi.uploadFile(file);
-      setUploadedFileIds((prev) => [...prev, fileId]);
+      const fileEntry: LoadFile = { id: fileId, fileName: file.name };
+      setUploadedFiles((prev) => [...prev, fileEntry]);
       message.success({ content: 'File uploaded successfully', key: 'upload' });
-      return true;
+      return {
+        uid: fileId,
+        name: file.name,
+        status: 'done',
+        size: file.size,
+        type: file.type,
+      };
     } catch (error) {
       console.error('File upload failed:', error);
       message.error({ content: 'File upload failed', key: 'upload' });
-      return false;
+      return null;
     }
   };
 
-  const handleFileRemove = async (file: UploadFile) => {
-    const fileId = file.uid;
-    try {
-      await fileApi.deleteFile(fileId);
-      setUploadedFileIds((prev) => prev.filter((id) => id !== fileId));
-      message.success('File removed successfully');
-    } catch (error) {
-      console.error('Failed to delete file:', error);
-      message.error('Failed to remove file');
-    }
+  const handleFileRemove = (file: UploadFile) => {
+    setUploadedFiles((prev) => prev.filter((item) => item.id !== file.uid));
+    setFileList((prev) => prev.filter((item) => item.uid !== file.uid));
+    message.success('File removed');
+    return true;
   };
 
-  const getFieldsForStep = (step: number): string[] => {
+  const getFieldsForStep = (step: number): (string | string[])[] => {
     switch (step) {
       case 0: // Customer Information
         return ['customer', 'referenceNumber', 'contactName'];
       case 1: // Carrier Information
-        return ['carrierRate'];
+        return [];
       case 2: // Service Information
         return ['loadType', 'serviceType', 'serviceGivenAs', 'commodity'];
       case 3: // Booking Information
         return ['bookedAs', 'soldAs', 'weight'];
       case 4: // Pick-up Location
-        return ['pickupSelectCarrier', 'pickupName', 'pickupAddress'];
+        return [
+          ['pickup', 'carrier'],
+          ['pickup', 'name'],
+          ['pickup', 'address'],
+        ];
       case 5: // Drop-off Location
-        return ['dropoffSelectCarrier', 'dropoffName', 'dropoffAddress'];
+        return [
+          ['dropoff', 'carrier'],
+          ['dropoff', 'name'],
+          ['dropoff', 'address'],
+        ];
       case 6: // Files
         return [];
       default:
@@ -184,7 +240,7 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
               <Input placeholder="Enter reference number" />
             </Form.Item>
             <Form.Item label="Customer Rate" name="customerRate">
-              <Input placeholder="Enter customer rate" />
+              <Input placeholder="Enter customer rate" type="number" />
             </Form.Item>
             <Form.Item
               label="Contact Name"
@@ -205,12 +261,8 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
             <Form.Item label="Carrier Payment Method" name="carrierPaymentMethod">
               <Input placeholder="Enter payment method" />
             </Form.Item>
-            <Form.Item
-              label="Carrier Rate"
-              name="carrierRate"
-              rules={[{ required: true, message: 'Please enter carrier rate' }]}
-            >
-              <Input placeholder="Enter carrier rate" />
+            <Form.Item label="Carrier Rate" name="carrierRate">
+              <Input placeholder="Enter carrier rate" type="number" />
             </Form.Item>
           </>
         );
@@ -289,29 +341,29 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
       case 4: // Pick-up Location
         return (
           <>
-            <Form.Item label="City / Zipcode" name="pickupCityZipcode">
+            <Form.Item label="City / Zipcode" name={['pickup', 'cityZipCode']}>
               <Input placeholder="Enter city or zipcode" />
             </Form.Item>
-            <Form.Item label="Phone Number" name="pickupPhoneNumber">
+            <Form.Item label="Phone Number" name={['pickup', 'phone']}>
               <Input placeholder="Enter phone number" />
             </Form.Item>
             <Form.Item
               label="Select Carrier"
-              name="pickupSelectCarrier"
+              name={['pickup', 'carrier']}
               rules={[{ required: true, message: 'Please enter carrier' }]}
             >
               <Input placeholder="Enter carrier" />
             </Form.Item>
             <Form.Item
               label="Name"
-              name="pickupName"
+              name={['pickup', 'name']}
               rules={[{ required: true, message: 'Please enter name' }]}
             >
               <Input placeholder="Enter name" />
             </Form.Item>
             <Form.Item
               label="Address"
-              name="pickupAddress"
+              name={['pickup', 'address']}
               rules={[{ required: true, message: 'Please enter address' }]}
             >
               <Input.TextArea placeholder="Enter address" rows={3} />
@@ -322,29 +374,29 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
       case 5: // Drop-off Location
         return (
           <>
-            <Form.Item label="City / Zipcode" name="dropoffCityZipcode">
+            <Form.Item label="City / Zipcode" name={['dropoff', 'cityZipCode']}>
               <Input placeholder="Enter city or zipcode" />
             </Form.Item>
-            <Form.Item label="Phone Number" name="dropoffPhoneNumber">
+            <Form.Item label="Phone Number" name={['dropoff', 'phone']}>
               <Input placeholder="Enter phone number" />
             </Form.Item>
             <Form.Item
               label="Select Carrier"
-              name="dropoffSelectCarrier"
+              name={['dropoff', 'carrier']}
               rules={[{ required: true, message: 'Please enter carrier' }]}
             >
               <Input placeholder="Enter carrier" />
             </Form.Item>
             <Form.Item
               label="Name"
-              name="dropoffName"
+              name={['dropoff', 'name']}
               rules={[{ required: true, message: 'Please enter name' }]}
             >
               <Input placeholder="Enter name" />
             </Form.Item>
             <Form.Item
               label="Address"
-              name="dropoffAddress"
+              name={['dropoff', 'address']}
               rules={[{ required: true, message: 'Please enter address' }]}
             >
               <Input.TextArea placeholder="Enter address" rows={3} />
@@ -359,18 +411,9 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
               multiple
               fileList={fileList}
               beforeUpload={(file) => {
-                handleFileUpload(file).then((success) => {
-                  if (success) {
-                    setFileList((prev) => [
-                      ...prev,
-                      {
-                        uid: file.uid,
-                        name: file.name,
-                        status: 'done',
-                        size: file.size,
-                        type: file.type,
-                      },
-                    ]);
+                handleFileUpload(file).then((uploaded) => {
+                  if (uploaded) {
+                    setFileList((prev) => [...prev, uploaded]);
                   }
                 });
                 return false; // Prevent auto upload
@@ -396,18 +439,21 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
       title="Edit Load"
       open={open}
       onCancel={handleClose}
-      width={800}
+      width={1000}
       footer={null}
+      destroyOnClose
     >
-      {initialLoading ? (
-        <div style={{ textAlign: 'center', padding: '40px 0' }}>
-          <Spin size="large" />
-        </div>
-      ) : (
+      {load ? (
         <>
           <Steps current={currentStep} items={steps} style={{ marginBottom: 24 }} />
 
-          <Form form={form} layout="vertical">
+          <Form
+            form={form}
+            layout="vertical"
+            initialValues={{
+              chargeServiceFeeToOffice: false,
+            }}
+          >
             {renderStepContent()}
           </Form>
 
@@ -428,6 +474,10 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
             <Button onClick={handleClose}>Cancel</Button>
           </Space>
         </>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          Unable to load record. Please close and try again.
+        </div>
       )}
     </Modal>
   );

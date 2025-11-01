@@ -12,6 +12,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/s3-proxy': {
+        target: 'https://dev-twy-am-files-bucket.s3.us-east-1.amazonaws.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/s3-proxy/, ''),
+      },
     },
   },
   resolve: {

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   Table,
   Button,
@@ -28,8 +29,8 @@ import {
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { UserRole, USER_ROLE_LABELS } from '@/entities/user/types'
-import type { User, CurrentUser } from '@/entities/user/types'
-import { getUsers, deleteUser, getCurrentUser } from '@/entities/user/api'
+import type { User } from '@/entities/user/types'
+import { getUsers, deleteUser } from '@/entities/user/api'
 import UserEditModal from './UserEditModal'
 import UserCreateModal from './UserCreateModal'
 
@@ -39,6 +40,7 @@ const { Option } = Select
 const { RangePicker } = DatePicker
 
 const UserManagementTable: React.FC = () => {
+  const location = useLocation()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [searchText, setSearchText] = useState('')
@@ -47,7 +49,6 @@ const UserManagementTable: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [isEditModalVisible, setIsEditModalVisible] = useState(false)
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false)
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(0) // zero-indexed
@@ -55,8 +56,38 @@ const UserManagementTable: React.FC = () => {
   const [total, setTotal] = useState(0)
   const [sortField, setSortField] = useState<'firstName' | 'lastName' | 'email' | 'role' | 'isActive' | 'createdAt' | 'branch' | undefined>(undefined)
   const [sortOrder, setSortOrder] = useState<'ascend' | 'descend' | undefined>(undefined)
+  const isFetchingRef = useRef(false)
+  const locationRef = useRef(location.pathname)
+
+  // Reset fetch guard when route changes and abort any in-flight fetches
+  useEffect(() => {
+    if (locationRef.current !== location.pathname) {
+      locationRef.current = location.pathname
+      isFetchingRef.current = false
+      // Reset loading state if we navigated away
+      if (location.pathname !== '/') {
+        setLoading(false)
+      }
+    }
+  }, [location.pathname])
 
   const fetchUsers = async () => {
+    // CRITICAL: Only fetch if we're on the users page - check first!
+    if (location.pathname !== '/') {
+      return
+    }
+    
+    // Double-check location before proceeding (component might be stale)
+    if (locationRef.current !== '/') {
+      return
+    }
+    
+    // Skip if already fetching (prevents double calls in StrictMode)
+    if (isFetchingRef.current) {
+      return
+    }
+    
+    isFetchingRef.current = true
     setLoading(true)
     try {
       const response = await getUsers({
@@ -66,32 +97,48 @@ const UserManagementTable: React.FC = () => {
         sortOrder,
         query: searchText || undefined
       })
+      
+      // Final safety check - only update if still on users page
+      if (location.pathname !== '/' || locationRef.current !== '/') {
+        return
+      }
+      
       setUsers(response.users)
       setTotal(response.total)
     } catch (error) {
-      message.error('Failed to fetch users')
+      // Only show error if still on users page
+      if (location.pathname === '/' && locationRef.current === '/') {
+        message.error('Failed to fetch users')
+      }
     } finally {
-      setLoading(false)
+      // Only update loading state if still on users page
+      if (location.pathname === '/' && locationRef.current === '/') {
+        setLoading(false)
+      }
+      isFetchingRef.current = false
     }
   }
 
-  // Fetch current user on mount
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const userData = await getCurrentUser()
-        setCurrentUser(userData)
-      } catch (error) {
-        console.error('Failed to fetch current user:', error)
-      }
+    // Only fetch if we're on the users page
+    if (location.pathname !== '/') {
+      return
     }
-    fetchCurrentUser()
-  }, [])
-
-  useEffect(() => {
-    fetchUsers()
+    
+    let cancelled = false
+    
+    const doFetch = async () => {
+      if (cancelled) return
+      await fetchUsers()
+    }
+    
+    doFetch()
+    
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, sortField, sortOrder, searchText])
+  }, [location.pathname, currentPage, pageSize, sortField, sortOrder, searchText])
 
   const handleDelete = async (id: string) => {
     try {
@@ -246,30 +293,23 @@ const UserManagementTable: React.FC = () => {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Tooltip title={currentUser?.email === record.email ? "You cannot edit yourself" : "Edit User"}>
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={() => handleEdit(record)}
-              disabled={currentUser?.email === record.email}
-            />
-          </Tooltip>
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          />
           <Popconfirm
             title="Are you sure you want to delete this user?"
             description="This action cannot be undone."
             onConfirm={() => handleDelete(record.id)}
             okText="Yes"
             cancelText="No"
-            disabled={currentUser?.email === record.email}
           >
-            <Tooltip title={currentUser?.email === record.email ? "You cannot delete yourself" : "Delete User"}>
-              <Button
-                type="text"
-                danger
-                icon={<DeleteOutlined />}
-                disabled={currentUser?.email === record.email}
-              />
-            </Tooltip>
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+            />
           </Popconfirm>
         </Space>
       )

@@ -1,6 +1,20 @@
 import ApiClient from './ApiClient.ts';
 import type { ApiResponse } from './types.ts';
 
+const toProxiedS3Url = (url: string): string => {
+  if (!import.meta.env.DEV) {
+    return url;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    return `/s3-proxy${parsedUrl.pathname}${parsedUrl.search}`;
+  } catch (error) {
+    console.warn('Failed to parse S3 URL for proxying', error);
+    return url;
+  }
+};
+
 export interface FileUploadPayload {
   fileName: string;
   contentType: string;
@@ -43,7 +57,9 @@ export const fileApi = {
    * Upload file directly to S3 using the presigned URL
    */
   uploadToS3: async (uploadUrl: string, file: File, headers: Record<string, string>): Promise<void> => {
-    const response = await fetch(uploadUrl, {
+    const targetUrl = toProxiedS3Url(uploadUrl);
+
+    const response = await fetch(targetUrl, {
       method: 'PUT',
       headers,
       body: file,
@@ -94,8 +110,9 @@ export const fileApi = {
    */
   downloadFile: async (fileId: string, fileName?: string): Promise<void> => {
     const { downloadUrl } = await fileApi.getDownloadUrl(fileId);
-    
-    const response = await fetch(downloadUrl);
+    const targetUrl = toProxiedS3Url(downloadUrl);
+
+    const response = await fetch(targetUrl);
     const blob = await response.blob();
     
     // Create a temporary link to trigger download

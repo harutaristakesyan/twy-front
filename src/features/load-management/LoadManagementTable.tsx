@@ -1,50 +1,121 @@
-import { useState, useEffect } from 'react';
-import { Table, Button, Space, Popconfirm, Input, Tag, App } from 'antd';
-import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, ChangeEvent, useRef } from 'react';
+import { Table, Button, Space, Popconfirm, Input, Tag, App, Card, Row, Col, Typography, Statistic } from 'antd';
+import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, ReloadOutlined, TruckOutlined } from '@ant-design/icons';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
-import { loadApi, type Load } from '@/entities/load';
+import { loadApi, type Load, type GetLoadsParams } from '@/entities/load';
 import { LoadEditModal } from './LoadEditModal';
+
+const { Search } = Input;
+const { Title, Text } = Typography;
 
 export const LoadManagementTable: React.FC = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [sortState, setSortState] = useState<{ field?: GetLoadsParams['sortField']; order?: GetLoadsParams['sortOrder'] }>({});
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [selectedLoadId, setSelectedLoadId] = useState<string | null>(null);
+  const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
+  const hasMountedRef = useRef(false);
+  const locationRef = useRef(location.pathname);
+
+  // Reset fetch guard when route changes
+  useEffect(() => {
+    if (locationRef.current !== location.pathname) {
+      locationRef.current = location.pathname
+      // Reset mounted flag so we can fetch when coming back to this page
+      if (location.pathname === '/loads') {
+        hasMountedRef.current = false
+      }
+    }
+  }, [location.pathname])
+
+  const fetchLoads = useCallback(
+    async (
+      page: number = pagination.current,
+      pageSize: number = pagination.pageSize,
+      search: string = searchText,
+      sortField: GetLoadsParams['sortField'] = sortState.field,
+      sortOrder: GetLoadsParams['sortOrder'] = sortState.order,
+    ) => {
+      // Only fetch if we're on the loads page
+      if (location.pathname !== '/loads') {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await loadApi.getAll({
+          page: page - 1,
+          limit: pageSize,
+          query: search ? search : undefined,
+          sortField,
+          sortOrder,
+        });
+        
+        // Final safety check - only update if still on loads page
+        if (location.pathname !== '/loads' || locationRef.current !== '/loads') {
+          return;
+        }
+        
+        setLoads(response.loads);
+        setPagination({ current: page, pageSize, total: response.total });
+      } catch (error) {
+        // Only show error if still on loads page
+        if (location.pathname === '/loads' && locationRef.current === '/loads') {
+          console.error('Failed to fetch loads:', error);
+          message.error('Failed to fetch loads');
+        }
+      } finally {
+        // Only update loading state if still on loads page
+        if (location.pathname === '/loads' && locationRef.current === '/loads') {
+          setLoading(false);
+        }
+      }
+    },
+    [message, pagination.current, pagination.pageSize, searchText, sortState.field, sortState.order, location.pathname],
+  );
 
   useEffect(() => {
-    fetchLoads();
-  }, []);
-
-  const fetchLoads = async () => {
-    try {
-      setLoading(true);
-      const data = await loadApi.getAll();
-      setLoads(data);
-    } catch (error) {
-      console.error('Failed to fetch loads:', error);
-      message.error('Failed to fetch loads');
-    } finally {
-      setLoading(false);
+    // Only fetch if we're on the loads page
+    if (location.pathname !== '/loads') {
+      return
     }
-  };
+    
+    let cancelled = false
+    
+    const doFetch = async () => {
+      if (cancelled) return
+      if (hasMountedRef.current) return
+      hasMountedRef.current = true
+      await fetchLoads(1, pagination.pageSize)
+    }
+    
+    doFetch()
+    
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   const handleDelete = async (id: string) => {
     try {
       await loadApi.delete(id);
       message.success('Load deleted successfully');
-      fetchLoads();
+      fetchLoads(pagination.current, pagination.pageSize);
     } catch (error) {
       console.error('Failed to delete load:', error);
       message.error('Failed to delete load');
     }
   };
 
-  const handleEdit = (id: string) => {
-    setSelectedLoadId(id);
+  const handleEdit = (record: Load) => {
+    setSelectedLoad(record);
     setEditModalOpen(true);
   };
 
@@ -53,21 +124,52 @@ export const LoadManagementTable: React.FC = () => {
   };
 
   const handleEditSuccess = () => {
-    fetchLoads();
+    fetchLoads(pagination.current, pagination.pageSize);
     setEditModalOpen(false);
-    setSelectedLoadId(null);
+    setSelectedLoad(null);
   };
 
-  const filteredLoads = (loads || []).filter((load) => {
-    const searchLower = searchText.toLowerCase();
-    return (
-      load.customer?.toLowerCase().includes(searchLower) ||
-      load.referenceNumber?.toLowerCase().includes(searchLower) ||
-      load.contactName?.toLowerCase().includes(searchLower) ||
-      load.carrier?.toLowerCase().includes(searchLower) ||
-      load.commodity?.toLowerCase().includes(searchLower)
-    );
-  });
+  const handleTableChange = (tablePagination: any, _filters: any, sorter: any) => {
+    let field: GetLoadsParams['sortField'];
+    let order: GetLoadsParams['sortOrder'];
+
+    if (!Array.isArray(sorter) && sorter?.field && sorter?.order) {
+      const validFields: GetLoadsParams['sortField'][] = ['referenceNumber', 'status', 'createdAt', 'customer'];
+      if (validFields.includes(sorter.field)) {
+        field = sorter.field;
+        order = sorter.order;
+      }
+    }
+
+    setSortState({ field, order });
+    fetchLoads(tablePagination.current, tablePagination.pageSize, searchText, field, order);
+  };
+
+  const handleSearch = (value: string) => {
+    setSearchText(value);
+    fetchLoads(1, pagination.pageSize, value, sortState.field, sortState.order);
+  };
+
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setSearchText(value);
+    if (value === '') {
+      fetchLoads(1, pagination.pageSize, '', sortState.field, sortState.order);
+    }
+  };
+
+  const formatCurrency = (value?: number | null) => {
+    if (value === null || value === undefined) {
+      return '-';
+    }
+    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const statusColorMap: Record<string, string> = {
+    Pending: 'gold',
+    Approved: 'green',
+    Denied: 'red',
+  };
 
   const columns: ColumnsType<Load> = [
     {
@@ -77,6 +179,18 @@ export const LoadManagementTable: React.FC = () => {
       width: 130,
       fixed: 'left',
       render: (text) => <strong>{text}</strong>,
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      width: 120,
+      sorter: true,
+      render: (status: Load['status']) => (
+        <Tag color={statusColorMap[status] || 'default'} style={{ textTransform: 'capitalize' }}>
+          {status}
+        </Tag>
+      ),
     },
     {
       title: 'Customer',
@@ -134,9 +248,9 @@ export const LoadManagementTable: React.FC = () => {
       width: 150,
       render: (_, record) => (
         <div>
-          <div>{record.pickupName}</div>
+          <div>{record.pickup.name}</div>
           <div style={{ fontSize: '12px', color: '#666' }}>
-            {record.pickupCityZipcode || 'N/A'}
+            {record.pickup.cityZipCode || 'N/A'}
           </div>
         </div>
       ),
@@ -147,9 +261,9 @@ export const LoadManagementTable: React.FC = () => {
       width: 150,
       render: (_, record) => (
         <div>
-          <div>{record.dropoffName}</div>
+          <div>{record.dropoff.name}</div>
           <div style={{ fontSize: '12px', color: '#666' }}>
-            {record.dropoffCityZipcode || 'N/A'}
+            {record.dropoff.cityZipCode || 'N/A'}
           </div>
         </div>
       ),
@@ -159,24 +273,26 @@ export const LoadManagementTable: React.FC = () => {
       dataIndex: 'carrierRate',
       key: 'carrierRate',
       width: 120,
-      render: (text) => <strong style={{ color: '#52c41a' }}>${text}</strong>,
+      render: (value: number | null | undefined) =>
+        value != null ? <strong style={{ color: '#52c41a' }}>{formatCurrency(value)}</strong> : '-',
     },
     {
       title: 'Customer Rate',
       dataIndex: 'customerRate',
       key: 'customerRate',
       width: 130,
-      render: (text) => (text ? <strong style={{ color: '#1890ff' }}>${text}</strong> : '-'),
+      render: (value: number | null | undefined) =>
+        value != null ? <strong style={{ color: '#1890ff' }}>{formatCurrency(value)}</strong> : '-',
     },
     {
       title: 'Files',
-      dataIndex: 'fileIds',
-      key: 'fileIds',
+      dataIndex: 'files',
+      key: 'files',
       width: 80,
       align: 'center',
-      render: (fileIds: string[]) => (
-        <Tag color={fileIds && fileIds.length > 0 ? 'green' : 'default'}>
-          {fileIds && fileIds.length > 0 ? fileIds.length : 0}
+      render: (files: Load['files']) => (
+        <Tag color={files && files.length > 0 ? 'green' : 'default'}>
+          {files && files.length > 0 ? files.length : 0}
         </Tag>
       ),
     },
@@ -184,13 +300,14 @@ export const LoadManagementTable: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 120,
+      width: 150,
+      align: 'right',
       render: (_, record) => (
         <Space size="small">
           <Button
             type="link"
             icon={<EditOutlined />}
-            onClick={() => handleEdit(record.id)}
+            onClick={() => handleEdit(record)}
             style={{ padding: '4px 8px' }}
           >
             Edit
@@ -218,43 +335,87 @@ export const LoadManagementTable: React.FC = () => {
 
   return (
     <div>
-      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
-        <Input
-          placeholder="Search by customer, reference, contact, carrier, or commodity"
-          prefix={<SearchOutlined />}
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: 400 }}
-          allowClear
-        />
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleCreateNew}
-        >
-          Create New Load
-        </Button>
-      </Space>
+      {/* Statistics Card */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} md={6}>
+          <Card>
+            <Statistic
+              title="Total Loads"
+              value={pagination.total}
+              prefix={<TruckOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      <Table
-        columns={columns}
-        dataSource={filteredLoads}
-        rowKey="id"
-        loading={loading}
-        scroll={{ x: 1800 }}
-        pagination={{
-          defaultPageSize: 10,
-          showSizeChanger: true,
-          showTotal: (total) => `Total ${total} loads`,
-        }}
-      />
+      {/* Main Table Card */}
+      <Card>
+        <div style={{ marginBottom: 16 }}>
+          <Row justify="space-between" align="middle">
+            <Col>
+              <Title level={4} style={{ margin: 0 }}>Load Management</Title>
+              <Text type="secondary">Manage loads and shipments</Text>
+            </Col>
+            <Col>
+              <Space>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={handleCreateNew}
+                >
+                  Create New Load
+                </Button>
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={() => fetchLoads(pagination.current, pagination.pageSize)}
+                  loading={loading}
+                >
+                  Refresh
+                </Button>
+              </Space>
+            </Col>
+          </Row>
+        </div>
+
+        {/* Search */}
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Search
+              placeholder="Search loads..."
+              value={searchText}
+              onChange={handleSearchChange}
+              onSearch={handleSearch}
+              prefix={<SearchOutlined />}
+              allowClear
+            />
+          </Col>
+        </Row>
+
+        <Table
+          columns={columns}
+          dataSource={loads}
+          rowKey="id"
+          loading={loading}
+          scroll={{ x: 1970 }}
+          pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            pageSizeOptions: ['5', '10', '20', '50', '100'],
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} loads`,
+          }}
+          onChange={handleTableChange}
+        />
+      </Card>
 
       <LoadEditModal
         open={editModalOpen}
-        loadId={selectedLoadId}
+        load={selectedLoad}
         onClose={() => {
           setEditModalOpen(false);
-          setSelectedLoadId(null);
+          setSelectedLoad(null);
         }}
         onSuccess={handleEditSuccess}
       />

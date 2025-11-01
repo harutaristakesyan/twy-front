@@ -1,94 +1,84 @@
+export type LoadStatus = 'Pending' | 'Approved' | 'Denied';
+
+export interface LoadFile {
+  id: string;
+  fileName: string;
+}
+
+export interface Location {
+  cityZipCode?: string | null;
+  phone?: string | null;
+  carrier: string;
+  name: string;
+  address: string;
+}
+
 export interface Load {
   id: string;
-  
-  // Customer Information
   customer: string;
   referenceNumber: string;
-  customerRate?: string;
+  customerRate?: number | null;
   contactName: string;
-  
-  // Carrier Information
-  carrier?: string;
-  carrierPaymentMethod?: string;
-  carrierRate: string;
-  
-  // Service Information
+  carrier?: string | null;
+  carrierPaymentMethod?: string | null;
+  carrierRate?: number | null;
   chargeServiceFeeToOffice: boolean;
   loadType: string;
   serviceType: string;
   serviceGivenAs: string;
   commodity: string;
-  
-  // Booking Information
   bookedAs: string;
   soldAs: string;
   weight: string;
-  temperature?: string;
-  
-  // Pick-up Location
-  pickupCityZipcode?: string;
-  pickupPhoneNumber?: string;
-  pickupSelectCarrier: string;
-  pickupName: string;
-  pickupAddress: string;
-  
-  // Drop-off Location
-  dropoffCityZipcode?: string;
-  dropoffPhoneNumber?: string;
-  dropoffSelectCarrier: string;
-  dropoffName: string;
-  dropoffAddress: string;
-  
-  // Additional Fields
-  fileIds?: string[];
-  
-  // Metadata
+  temperature?: string | null;
+  pickup: Location;
+  dropoff: Location;
+  branchId: string;
+  status: LoadStatus;
+  statusChangedBy: string | null;
+  files: LoadFile[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateLoadDto {
-  // Customer Information
   customer: string;
   referenceNumber: string;
-  customerRate?: string;
+  customerRate?: number | null;
   contactName: string;
-  
-  // Carrier Information
-  carrier?: string;
-  carrierPaymentMethod?: string;
-  carrierRate: string;
-  
-  // Service Information
+  carrier?: string | null;
+  carrierPaymentMethod?: string | null;
+  carrierRate?: number | null;
   chargeServiceFeeToOffice: boolean;
   loadType: string;
   serviceType: string;
   serviceGivenAs: string;
   commodity: string;
-  
-  // Booking Information
   bookedAs: string;
   soldAs: string;
   weight: string;
-  temperature?: string;
-  
-  // Pick-up Location
-  pickupCityZipcode?: string;
-  pickupPhoneNumber?: string;
-  pickupSelectCarrier: string;
-  pickupName: string;
-  pickupAddress: string;
-  
-  // Drop-off Location
-  dropoffCityZipcode?: string;
-  dropoffPhoneNumber?: string;
-  dropoffSelectCarrier: string;
-  dropoffName: string;
-  dropoffAddress: string;
-  
-  // Additional Fields
-  fileIds?: string[];
+  temperature?: string | null;
+  pickup: Location;
+  dropoff: Location;
+  files?: LoadFile[];
 }
 
-export interface UpdateLoadDto extends Partial<CreateLoadDto> {}
+export type UpdateLoadDto = Partial<CreateLoadDto>;
+
+export interface ChangeLoadStatusDto {
+  status: LoadStatus;
+}
+
+export interface GetLoadsParams {
+  page?: number;
+  limit?: number;
+  sortField?: 'referenceNumber' | 'status' | 'createdAt' | 'customer';
+  sortOrder?: 'ascend' | 'descend';
+  query?: string;
+}
+
+export interface PaginatedLoadsResponse {
+  loads: Load[];
+  total: number;
+}
 
