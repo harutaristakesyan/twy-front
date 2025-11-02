@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, ChangeEvent, useRef } from 'react';
 import { Table, Button, Space, Popconfirm, Input, Tag, App, Card, Row, Col, Typography, Statistic } from 'antd';
-import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, ReloadOutlined, TruckOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, ReloadOutlined, TruckOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import { loadApi, type Load, type GetLoadsParams } from '@/entities/load';
 import { LoadEditModal } from './LoadEditModal';
+import { StatusUpdateModal } from './StatusUpdateModal';
 
 const { Search } = Input;
 const { Title, Text } = Typography;
@@ -20,6 +21,8 @@ export const LoadManagementTable: React.FC = () => {
   const [sortState, setSortState] = useState<{ field?: GetLoadsParams['sortField']; order?: GetLoadsParams['sortOrder'] }>({});
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [loadForStatusUpdate, setLoadForStatusUpdate] = useState<Load | null>(null);
   const hasMountedRef = useRef(false);
   const locationRef = useRef(location.pathname);
 
@@ -127,6 +130,20 @@ export const LoadManagementTable: React.FC = () => {
     fetchLoads(pagination.current, pagination.pageSize);
     setEditModalOpen(false);
     setSelectedLoad(null);
+  };
+
+  const handleStatusUpdate = (record: Load) => {
+    setLoadForStatusUpdate(record);
+    setStatusModalOpen(true);
+  };
+
+  const handleStatusUpdateSuccess = () => {
+    fetchLoads(pagination.current, pagination.pageSize);
+  };
+
+  const handleStatusModalClose = () => {
+    setStatusModalOpen(false);
+    setLoadForStatusUpdate(null);
   };
 
   const handleTableChange = (tablePagination: any, _filters: any, sorter: any) => {
@@ -300,10 +317,18 @@ export const LoadManagementTable: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 180,
+      width: 240,
       align: 'right',
       render: (_, record) => (
         <Space size="small" wrap={false}>
+          <Button
+            type="link"
+            icon={<CheckCircleOutlined />}
+            onClick={() => handleStatusUpdate(record)}
+            style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}
+          >
+            Status
+          </Button>
           <Button
             type="link"
             icon={<EditOutlined />}
@@ -418,6 +443,13 @@ export const LoadManagementTable: React.FC = () => {
           setSelectedLoad(null);
         }}
         onSuccess={handleEditSuccess}
+      />
+
+      <StatusUpdateModal
+        open={statusModalOpen}
+        load={loadForStatusUpdate}
+        onClose={handleStatusModalClose}
+        onSuccess={handleStatusUpdateSuccess}
       />
     </div>
   );
