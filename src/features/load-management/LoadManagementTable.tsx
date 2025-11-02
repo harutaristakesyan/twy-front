@@ -300,15 +300,15 @@ export const LoadManagementTable: React.FC = () => {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 150,
+      width: 180,
       align: 'right',
       render: (_, record) => (
-        <Space size="small">
+        <Space size="small" wrap={false}>
           <Button
             type="link"
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
-            style={{ padding: '4px 8px' }}
+            style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}
           >
             Edit
           </Button>
@@ -323,7 +323,7 @@ export const LoadManagementTable: React.FC = () => {
               type="link"
               danger
               icon={<DeleteOutlined />}
-              style={{ padding: '4px 8px' }}
+              style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}
             >
               Delete
             </Button>
@@ -396,7 +396,7 @@ export const LoadManagementTable: React.FC = () => {
           dataSource={loads}
           rowKey="id"
           loading={loading}
-          scroll={{ x: 1970 }}
+          scroll={{ x: 2000 }}
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,
