@@ -103,7 +103,7 @@ export const LoadCreateModal: React.FC<LoadCreateModalProps> = ({ open, onClose,
   const getFieldsForStep = (step: number): string[] => {
     switch (step) {
       case 0: // Customer Information
-        return ['customer', 'referenceNumber', 'contactName'];
+        return ['customer', 'referenceNumber', 'contactName', 'customerRate'];
       case 1: // Carrier Information
         return ['carrierRate'];
       case 2: // Service Information
@@ -140,8 +140,12 @@ export const LoadCreateModal: React.FC<LoadCreateModalProps> = ({ open, onClose,
             >
               <Input placeholder="Enter reference number" />
             </Form.Item>
-            <Form.Item label="Customer Rate" name="customerRate">
-              <Input placeholder="Enter customer rate" />
+            <Form.Item 
+              label="Customer Rate" 
+              name="customerRate"
+              rules={[{ required: true, message: 'Please enter customer rate' }]}
+            >
+              <Input placeholder="Enter customer rate" type="number" />
             </Form.Item>
             <Form.Item
               label="Contact Name"

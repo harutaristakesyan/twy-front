@@ -194,9 +194,9 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
   const getFieldsForStep = (step: number): (string | string[])[] => {
     switch (step) {
       case 0: // Customer Information
-        return ['customer', 'referenceNumber', 'contactName'];
+        return ['customer', 'referenceNumber', 'contactName', 'customerRate'];
       case 1: // Carrier Information
-        return [];
+        return ['carrierRate'];
       case 2: // Service Information
         return ['loadType', 'serviceType', 'serviceGivenAs', 'commodity'];
       case 3: // Booking Information
@@ -239,7 +239,11 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
             >
               <Input placeholder="Enter reference number" />
             </Form.Item>
-            <Form.Item label="Customer Rate" name="customerRate">
+            <Form.Item 
+              label="Customer Rate" 
+              name="customerRate"
+              rules={[{ required: true, message: 'Please enter customer rate' }]}
+            >
               <Input placeholder="Enter customer rate" type="number" />
             </Form.Item>
             <Form.Item
@@ -261,7 +265,11 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
             <Form.Item label="Carrier Payment Method" name="carrierPaymentMethod">
               <Input placeholder="Enter payment method" />
             </Form.Item>
-            <Form.Item label="Carrier Rate" name="carrierRate">
+            <Form.Item 
+              label="Carrier Rate" 
+              name="carrierRate"
+              rules={[{ required: true, message: 'Please enter carrier rate' }]}
+            >
               <Input placeholder="Enter carrier rate" type="number" />
             </Form.Item>
           </>

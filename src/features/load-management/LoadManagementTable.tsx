@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, ChangeEvent, useRef } from 'react';
-import { Table, Button, Space, Popconfirm, Input, Tag, App, Card, Row, Col, Typography, Statistic } from 'antd';
-import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, ReloadOutlined, TruckOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Table, Button, Space, Popconfirm, Input, Tag, App, Card, Row, Col, Typography, Statistic, Dropdown, type MenuProps } from 'antd';
+import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, ReloadOutlined, TruckOutlined, CheckCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import { loadApi, type Load, type GetLoadsParams } from '@/entities/load';
 import { LoadEditModal } from './LoadEditModal';
 import { StatusUpdateModal } from './StatusUpdateModal';
+import { fileApi } from '@/shared/api/fileApi';
 
 const { Search } = Input;
 const { Title, Text } = Typography;
@@ -144,6 +145,17 @@ export const LoadManagementTable: React.FC = () => {
   const handleStatusModalClose = () => {
     setStatusModalOpen(false);
     setLoadForStatusUpdate(null);
+  };
+
+  const handleFileDownload = async (fileId: string, fileName: string) => {
+    try {
+      message.loading({ content: 'Downloading file...', key: 'download' });
+      await fileApi.downloadFile(fileId, fileName);
+      message.success({ content: 'File downloaded successfully', key: 'download' });
+    } catch (error) {
+      console.error('Failed to download file:', error);
+      message.error({ content: 'Failed to download file', key: 'download' });
+    }
   };
 
   const handleTableChange = (tablePagination: any, _filters: any, sorter: any) => {
@@ -305,13 +317,37 @@ export const LoadManagementTable: React.FC = () => {
       title: 'Files',
       dataIndex: 'files',
       key: 'files',
-      width: 80,
+      width: 120,
       align: 'center',
-      render: (files: Load['files']) => (
-        <Tag color={files && files.length > 0 ? 'green' : 'default'}>
-          {files && files.length > 0 ? files.length : 0}
-        </Tag>
-      ),
+      render: (files: Load['files']) => {
+        const hasFiles = files && files.length > 0;
+        
+        if (!hasFiles) {
+          return <Tag color="default">0</Tag>;
+        }
+
+        const menuItems: MenuProps['items'] = files.map((file) => ({
+          key: file.id,
+          label: (
+            <Space>
+              <DownloadOutlined />
+              {file.fileName}
+            </Space>
+          ),
+          onClick: () => handleFileDownload(file.id, file.fileName),
+        }));
+
+        return (
+          <Dropdown menu={{ items: menuItems }} trigger={['click']}>
+            <Tag 
+              color="green" 
+              style={{ cursor: 'pointer' }}
+            >
+              {files.length} file{files.length > 1 ? 's' : ''}
+            </Tag>
+          </Dropdown>
+        );
+      },
     },
     {
       title: 'Actions',

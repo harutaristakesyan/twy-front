@@ -110,9 +110,19 @@ export const fileApi = {
    */
   downloadFile: async (fileId: string, fileName?: string): Promise<void> => {
     const { downloadUrl } = await fileApi.getDownloadUrl(fileId);
-    const targetUrl = toProxiedS3Url(downloadUrl);
+    
+    console.log('Downloading file:', { fileId, downloadUrl });
 
-    const response = await fetch(targetUrl);
+    // Use direct S3 URL for presigned URLs (proxy breaks AWS signatures)
+    const response = await fetch(downloadUrl, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      console.error('Download failed:', response.status, response.statusText);
+      throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+    }
+    
     const blob = await response.blob();
     
     // Create a temporary link to trigger download
