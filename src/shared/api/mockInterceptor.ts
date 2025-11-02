@@ -190,7 +190,7 @@ class MockInterceptor {
     // GET /user - Get current user profile
     if (method === 'GET' && (url.match(/^\/api\/user\/?$/) || url.match(/^\/user\/?$/))) {
       console.log('👤 GET /user intercepted, fetching current user profile')
-      const currentUser = mockStore.getUserById('1') // Simulate logged-in user as ID '1'
+      const currentUser = mockStore.getUserById('5') // Simulate logged-in user as ID '5' (Head Owner)
       
       if (currentUser) {
         // Transform to CurrentUser format with branch object
@@ -328,7 +328,7 @@ class MockInterceptor {
     // PATCH /user - Self update (name only)
     if (method === 'PATCH' && (url.match(/^\/api\/user\/?$/) || url.match(/^\/user\/?$/))) {
       const updateData = config.data
-      const currentUserId = '1' // Simulate logged-in user as ID '1'
+      const currentUserId = '5' // Simulate logged-in user as ID '5' (Head Owner)
       console.log('👤 PATCH /user intercepted, updating current user name:', updateData)
       
       const updatedUser = mockStore.updateUser(currentUserId, updateData)

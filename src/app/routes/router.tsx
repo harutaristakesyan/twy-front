@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import ProtectedRoute from '@/auth/ProtectedRoute'
+import RoleBasedRoute from '@/auth/RoleBasedRoute'
 import AppLayout from '@/app/layouts/Layout.tsx'
+import { MenuFeature } from '@/shared/utils/permissions'
 
 import LoginPage from '@/pages/LoginPage'
 import UsersPage from '@/pages/UsersPage.tsx'
@@ -28,10 +30,38 @@ export const router = createBrowserRouter([
       {
         element: <AppLayout />,
         children: [
-          { index: true, element: <UsersPage /> },
-          { path: 'branches', element: <BranchesPage /> },
-          { path: 'loads', element: <LoadsPage /> },
-          { path: 'loads/create', element: <CreateLoadPage /> },
+          { 
+            index: true, 
+            element: (
+              <RoleBasedRoute requiredFeature={MenuFeature.USERS}>
+                <UsersPage />
+              </RoleBasedRoute>
+            )
+          },
+          { 
+            path: 'branches', 
+            element: (
+              <RoleBasedRoute requiredFeature={MenuFeature.BRANCHES}>
+                <BranchesPage />
+              </RoleBasedRoute>
+            )
+          },
+          { 
+            path: 'loads', 
+            element: (
+              <RoleBasedRoute requiredFeature={MenuFeature.LOADS}>
+                <LoadsPage />
+              </RoleBasedRoute>
+            )
+          },
+          { 
+            path: 'loads/create', 
+            element: (
+              <RoleBasedRoute requiredFeature={MenuFeature.LOADS}>
+                <CreateLoadPage />
+              </RoleBasedRoute>
+            )
+          },
           { path: 'profile', element: <ProfilePage /> }
         ],
       },

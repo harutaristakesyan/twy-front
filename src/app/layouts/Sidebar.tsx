@@ -3,6 +3,8 @@ import { Flex, Layout, Menu, type MenuProps, Typography } from 'antd'
 import { LineChartOutlined, BranchesOutlined, TruckOutlined } from '@ant-design/icons'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { EventType, useEvent } from '@/shared/lib/EventBus.ts'
+import { useCurrentUser } from '@/shared/hooks/useCurrentUser'
+import { hasMenuAccess, MenuFeature } from '@/shared/utils/permissions'
 
 const { Sider } = Layout
 const { Title } = Typography
@@ -22,6 +24,7 @@ const Sidebar: React.FC = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
+  const { user } = useCurrentUser()
 
   useEvent(EventType.SidebarCollapsed, (payload) => setCollapsed(payload))
 
@@ -29,11 +32,28 @@ const Sidebar: React.FC = () => {
     navigate(key)
   }
 
-  const items: MenuProps['items'] = [
+  // Define all possible menu items
+  const allMenuItems: MenuProps['items'] = [
     { key: '/', icon: <LineChartOutlined />, label: 'Users' },
     { key: '/branches', icon: <BranchesOutlined />, label: 'Branches' },
     { key: '/loads', icon: <TruckOutlined />, label: 'Loads' }
   ]
+
+  // Filter menu items based on user role
+  const items: MenuProps['items'] = allMenuItems?.filter((item) => {
+    if (!user) return false
+    
+    switch (item?.key) {
+      case '/':
+        return hasMenuAccess(user.role, MenuFeature.USERS)
+      case '/branches':
+        return hasMenuAccess(user.role, MenuFeature.BRANCHES)
+      case '/loads':
+        return hasMenuAccess(user.role, MenuFeature.LOADS)
+      default:
+        return false
+    }
+  })
 
   return (
     <Sider style={siderStyle} trigger={null} collapsible collapsed={collapsed} theme="light" width={240} breakpoint="md">

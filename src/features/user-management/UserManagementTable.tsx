@@ -33,6 +33,7 @@ import type { User } from '@/entities/user/types'
 import { getUsers, deleteUser } from '@/entities/user/api'
 import UserEditModal from './UserEditModal'
 import UserCreateModal from './UserCreateModal'
+import { useCurrentUser } from '@/shared/hooks/useCurrentUser'
 
 const { Title, Text } = Typography
 const { Search } = Input
@@ -41,6 +42,7 @@ const { RangePicker } = DatePicker
 
 const UserManagementTable: React.FC = () => {
   const location = useLocation()
+  const { user: currentUser } = useCurrentUser()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [searchText, setSearchText] = useState('')
@@ -291,28 +293,41 @@ const UserManagementTable: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          />
-          <Popconfirm
-            title="Are you sure you want to delete this user?"
-            description="This action cannot be undone."
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-            />
-          </Popconfirm>
-        </Space>
-      )
+      render: (_, record) => {
+        const isCurrentUser = currentUser?.email === record.email
+        const tooltipMessage = isCurrentUser 
+          ? 'You cannot edit or delete your own account' 
+          : ''
+        
+        return (
+          <Space>
+            <Tooltip title={isCurrentUser ? tooltipMessage : undefined}>
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(record)}
+                disabled={isCurrentUser}
+              />
+            </Tooltip>
+            <Tooltip title={isCurrentUser ? tooltipMessage : undefined}>
+              <Popconfirm
+                title="Are you sure you want to delete this user?"
+                description="This action cannot be undone."
+                onConfirm={() => handleDelete(record.id)}
+                okText="Yes"
+                cancelText="No"
+              >
+                <Button
+                  type="text"
+                  danger
+                  icon={<DeleteOutlined />}
+                  disabled={isCurrentUser}
+                />
+              </Popconfirm>
+            </Tooltip>
+          </Space>
+        )
+      }
     }
   ]
 
