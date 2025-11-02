@@ -17,6 +17,7 @@ import type { User, UpdateUserRequest } from '@/entities/user/types'
 import { updateUser } from '@/entities/user/api'
 import { getBranches } from '@/entities/branch/api'
 import type { Branch } from '@/entities/branch/types'
+import { getErrorMessage } from '@/shared/utils/errorUtils'
 
 const { Option } = Select
 
@@ -65,7 +66,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
       setBranchTotal(response.total)
       setHasMoreBranches((page + 1) * 20 < response.total)
     } catch (error) {
-      message.error('Failed to fetch branches')
+      message.error(getErrorMessage(error))
     } finally {
       setLoadingBranches(false)
     }
@@ -115,7 +116,7 @@ const UserEditModal: React.FC<UserEditModalProps> = ({
       message.success('User updated successfully')
       onSuccess()
     } catch (error) {
-      message.error('Failed to update user')
+      message.error(getErrorMessage(error))
     } finally {
       setLoading(false)
     }

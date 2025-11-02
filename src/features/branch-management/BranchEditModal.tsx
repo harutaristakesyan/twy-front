@@ -12,6 +12,7 @@ import {
 import type { Branch, UpdateBranchRequest } from '@/entities/branch/types'
 import { updateBranch } from '@/entities/branch/api'
 import type { User } from '@/entities/user/types'
+import { getErrorMessage } from '@/shared/utils/errorUtils'
 
 const { Option } = Select
 const { TextArea } = Input
@@ -62,13 +63,13 @@ const BranchEditModal: React.FC<BranchEditModalProps> = ({
       onSuccess()
     } catch (error: any) {
       // Handle duplicate branch name error
-      const errorMessage = error?.response?.data?.error || error?.message || ''
+      const errorMessage = getErrorMessage(error)
       
       if (errorMessage.includes('duplicate key value violates unique constraint "branch_name_key"') ||
           errorMessage.includes('branch_name_key')) {
         message.error(`Branch name "${values.name}" already exists. Please use a different name.`)
       } else {
-        message.error('Failed to update branch')
+        message.error(errorMessage)
       }
     } finally {
       setLoading(false)

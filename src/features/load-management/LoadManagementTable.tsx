@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, ChangeEvent, useRef } from 'react';
-import { Table, Button, Space, Popconfirm, Input, Tag, App, Card, Row, Col, Typography, Statistic, Dropdown, type MenuProps } from 'antd';
+import { Table, Button, Space, Popconfirm, Input, Tag, App, Card, Row, Col, Typography, Statistic, Dropdown, type MenuProps, Tooltip } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined, ReloadOutlined, TruckOutlined, CheckCircleOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
@@ -7,6 +7,8 @@ import { loadApi, type Load, type GetLoadsParams } from '@/entities/load';
 import { LoadEditModal } from './LoadEditModal';
 import { StatusUpdateModal } from './StatusUpdateModal';
 import { fileApi } from '@/shared/api/fileApi';
+import { getErrorMessage } from '@/shared/utils/errorUtils';
+import { useCurrentUser } from '@/shared/hooks/useCurrentUser';
 
 const { Search } = Input;
 const { Title, Text } = Typography;
@@ -15,6 +17,7 @@ export const LoadManagementTable: React.FC = () => {
   const { message } = App.useApp();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useCurrentUser();
   const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -26,6 +29,9 @@ export const LoadManagementTable: React.FC = () => {
   const [loadForStatusUpdate, setLoadForStatusUpdate] = useState<Load | null>(null);
   const hasMountedRef = useRef(false);
   const locationRef = useRef(location.pathname);
+
+  // Check if user is assigned to a branch
+  const isBranchAssigned = user?.branch?.id !== undefined && user?.branch?.id !== null;
 
   // Reset fetch guard when route changes
   useEffect(() => {
@@ -72,7 +78,7 @@ export const LoadManagementTable: React.FC = () => {
         // Only show error if still on loads page
         if (location.pathname === '/loads' && locationRef.current === '/loads') {
           console.error('Failed to fetch loads:', error);
-          message.error('Failed to fetch loads');
+          message.error(getErrorMessage(error));
         }
       } finally {
         // Only update loading state if still on loads page
@@ -114,7 +120,7 @@ export const LoadManagementTable: React.FC = () => {
       fetchLoads(pagination.current, pagination.pageSize);
     } catch (error) {
       console.error('Failed to delete load:', error);
-      message.error('Failed to delete load');
+      message.error(getErrorMessage(error));
     }
   };
 
@@ -154,7 +160,7 @@ export const LoadManagementTable: React.FC = () => {
       message.success({ content: 'File downloaded successfully', key: 'download' });
     } catch (error) {
       console.error('Failed to download file:', error);
-      message.error({ content: 'Failed to download file', key: 'download' });
+      message.error({ content: getErrorMessage(error), key: 'download' });
     }
   };
 
@@ -419,13 +425,19 @@ export const LoadManagementTable: React.FC = () => {
             </Col>
             <Col>
               <Space>
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={handleCreateNew}
+                <Tooltip
+                  title={!isBranchAssigned ? "You must be assigned to a branch before creating a load. Please contact your administrator." : undefined}
+                  placement="top"
                 >
-                  Create New Load
-                </Button>
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={handleCreateNew}
+                    disabled={!isBranchAssigned}
+                  >
+                    Create New Load
+                  </Button>
+                </Tooltip>
                 <Button
                   icon={<ReloadOutlined />}
                   onClick={() => fetchLoads(pagination.current, pagination.pageSize)}

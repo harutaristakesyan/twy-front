@@ -34,6 +34,7 @@ import { getUsers, deleteUser } from '@/entities/user/api'
 import UserEditModal from './UserEditModal'
 import UserCreateModal from './UserCreateModal'
 import { useCurrentUser } from '@/shared/hooks/useCurrentUser'
+import { getErrorMessage } from '@/shared/utils/errorUtils'
 
 const { Title, Text } = Typography
 const { Search } = Input
@@ -110,7 +111,7 @@ const UserManagementTable: React.FC = () => {
     } catch (error) {
       // Only show error if still on users page
       if (location.pathname === '/' && locationRef.current === '/') {
-        message.error('Failed to fetch users')
+        message.error(getErrorMessage(error))
       }
     } finally {
       // Only update loading state if still on users page
@@ -155,7 +156,7 @@ const UserManagementTable: React.FC = () => {
         fetchUsers()
       }
     } catch (error) {
-      message.error('Failed to delete user')
+      message.error(getErrorMessage(error))
     }
   }
 

@@ -16,6 +16,7 @@ import type { UserFormData } from '@/entities/user/types'
 import { createUser } from '@/entities/user/api'
 import { getBranches } from '@/entities/branch/api'
 import type { Branch } from '@/entities/branch/types'
+import { getErrorMessage } from '@/shared/utils/errorUtils'
 
 const { Option } = Select
 
@@ -62,7 +63,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       setBranchTotal(response.total)
       setHasMoreBranches((page + 1) * 20 < response.total)
     } catch (error) {
-      message.error('Failed to fetch branches')
+      message.error(getErrorMessage(error))
     } finally {
       setLoadingBranches(false)
     }
@@ -90,7 +91,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       form.resetFields()
       onSuccess()
     } catch (error) {
-      message.error('Failed to create user')
+      message.error(getErrorMessage(error))
     } finally {
       setLoading(false)
     }

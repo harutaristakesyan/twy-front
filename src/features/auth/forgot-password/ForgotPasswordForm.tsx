@@ -3,6 +3,7 @@ import { Button, Form, Input, message } from 'antd'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ApiClient from '@/shared/api/ApiClient.ts'
+import { getErrorMessage } from '@/shared/utils/errorUtils'
 
 const ForgotPasswordForm = () => {
   const [form] = Form.useForm()
@@ -18,7 +19,7 @@ const ForgotPasswordForm = () => {
         state: { email, signUp: false },
       })
     } catch (error) {
-      message.error(error.message || 'Failed to send recovery code')
+      message.error(getErrorMessage(error))
     } finally {
       setLoading(false)
     }

@@ -16,6 +16,7 @@ import {
 import { UserOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons'
 import type { CurrentUser, SelfUpdateRequest } from '@/entities/user/types'
 import { getCurrentUser, selfUpdateUser } from '@/entities/user/api'
+import { getErrorMessage } from '@/shared/utils/errorUtils'
 
 const { Title, Text } = Typography
 
@@ -34,7 +35,7 @@ const UserSelfUpdate: React.FC = () => {
       setUser(userData)
     } catch (error) {
       console.error('❌ Failed to fetch user profile:', error)
-      message.error('Failed to fetch user profile')
+      message.error(getErrorMessage(error))
     } finally {
       setLoading(false)
     }
@@ -66,7 +67,7 @@ const UserSelfUpdate: React.FC = () => {
       setIsEditing(false)
       fetchCurrentUser()
     } catch (error) {
-      message.error('Failed to update profile')
+      message.error(getErrorMessage(error))
     } finally {
       setLoading(false)
     }

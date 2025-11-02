@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Select, Button, Space, message, App } from 'antd';
 import { loadApi } from '@/entities/load';
 import type { Load, LoadStatus } from '@/entities/load';
+import { getErrorMessage } from '@/shared/utils/errorUtils';
 
 const { Option } = Select;
 
@@ -48,7 +49,7 @@ export const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Failed to update load status:', error);
-      antMessage.error('Failed to update load status');
+      antMessage.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }

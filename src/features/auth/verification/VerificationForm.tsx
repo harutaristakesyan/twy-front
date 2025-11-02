@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import ApiClient from '@/shared/api/ApiClient.ts'
 import { maskEmail } from '@/shared/utils/email.ts'
 import ResendCode from '@/features/auth/components/ResendCode.tsx'
+import { getErrorMessage } from '@/shared/utils/errorUtils'
 
 const { Text, Title, Paragraph } = Typography
 
@@ -37,11 +38,7 @@ const VerificationForm = () => {
         navigate('/create-password', { state: { email, code } })
       }
     } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'message' in err) {
-        message.error((err as { message: string }).message || 'Verification failed')
-      } else {
-        message.error('Verification failed')
-      }
+      message.error(getErrorMessage(err))
     } finally {
       setLoading(false)
     }

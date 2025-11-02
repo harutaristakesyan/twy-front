@@ -32,6 +32,7 @@ import type { User } from '@/entities/user/types'
 import { UserRole } from '@/entities/user/types'
 import BranchEditModal from './BranchEditModal'
 import BranchCreateModal from './BranchCreateModal'
+import { getErrorMessage } from '@/shared/utils/errorUtils'
 
 const { Title, Text } = Typography
 const { Search } = Input
@@ -111,7 +112,7 @@ const BranchManagementTable: React.FC = () => {
     } catch (error) {
       // Only show error if still on branches page
       if (location.pathname === '/branches' && locationRef.current === '/branches') {
-        message.error('Failed to fetch branches')
+        message.error(getErrorMessage(error))
       }
     } finally {
       // Only update loading state if still on branches page
@@ -161,7 +162,7 @@ const BranchManagementTable: React.FC = () => {
       )
       setOwners(eligibleOwners)
     } catch (error) {
-      message.error('Failed to fetch owners')
+      message.error(getErrorMessage(error))
     } finally {
       setLoadingOwners(false)
     }
@@ -180,7 +181,7 @@ const BranchManagementTable: React.FC = () => {
         fetchBranches()
       }
     } catch (error) {
-      message.error('Failed to delete branch')
+      message.error(getErrorMessage(error))
     }
   }
 

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import type { UploadFile } from 'antd';
 import { loadApi, type CreateLoadDto, type LoadFile } from '@/entities/load';
 import { fileApi } from '@/shared/api/fileApi';
+import { getErrorMessage } from '@/shared/utils/errorUtils';
 
 const { Title } = Typography;
 
@@ -49,11 +50,27 @@ const CreateLoadPage: React.FC = () => {
       const pickup = values.pickup || {};
       const dropoff = values.dropoff || {};
 
-      const toNumberOrNull = (value?: string): number | null | undefined => {
+      const toNumberOrNull = (value?: string, fieldName?: string): number | null | undefined => {
         if (value === undefined) return undefined;
-        if (value === null || value === '') return null;
+        // For required fields (customerRate, carrierRate), don't allow null/empty
+        if (fieldName === 'customerRate' || fieldName === 'carrierRate') {
+          if (value === null || value === '') {
+            throw new Error(`${fieldName === 'customerRate' ? 'Customer Rate' : 'Carrier Rate'} is required`);
+          }
+        } else {
+          if (value === null || value === '') return null;
+        }
         const parsed = Number(value);
-        return Number.isNaN(parsed) ? null : parsed;
+        if (Number.isNaN(parsed)) {
+          if (fieldName === 'customerRate' || fieldName === 'carrierRate') {
+            throw new Error(`${fieldName === 'customerRate' ? 'Customer Rate' : 'Carrier Rate'} must be a valid number`);
+          }
+          return null;
+        }
+        if ((fieldName === 'customerRate' || fieldName === 'carrierRate') && parsed <= 0) {
+          throw new Error(`${fieldName === 'customerRate' ? 'Customer Rate' : 'Carrier Rate'} must be greater than 0`);
+        }
+        return parsed;
       };
 
       const toNullableString = (value?: string): string | null | undefined => {
@@ -66,11 +83,11 @@ const CreateLoadPage: React.FC = () => {
       const payload: CreateLoadDto = {
         customer: values.customer,
         referenceNumber: values.referenceNumber,
-        customerRate: toNumberOrNull(values.customerRate),
+        customerRate: toNumberOrNull(values.customerRate, 'customerRate'),
         contactName: values.contactName,
         carrier: toNullableString(values.carrier),
         carrierPaymentMethod: toNullableString(values.carrierPaymentMethod),
-        carrierRate: toNumberOrNull(values.carrierRate),
+        carrierRate: toNumberOrNull(values.carrierRate, 'carrierRate'),
         chargeServiceFeeToOffice: values.chargeServiceFeeToOffice ?? false,
         loadType: values.loadType,
         serviceType: values.serviceType,
@@ -102,7 +119,7 @@ const CreateLoadPage: React.FC = () => {
       navigate('/loads');
     } catch (error) {
       console.error('Failed to create load:', error);
-      message.error('Failed to create load');
+      message.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -128,7 +145,7 @@ const CreateLoadPage: React.FC = () => {
       };
     } catch (error) {
       console.error('File upload failed:', error);
-      message.error({ content: 'File upload failed', key: 'upload' });
+      message.error({ content: getErrorMessage(error), key: 'upload' });
       return null;
     }
   };
@@ -143,9 +160,9 @@ const CreateLoadPage: React.FC = () => {
   const getFieldsForStep = (step: number): (string | string[])[] => {
     switch (step) {
       case 0: // Customer Information
-        return ['customer', 'referenceNumber', 'contactName'];
+        return ['customer', 'referenceNumber', 'contactName', 'customerRate'];
       case 1: // Carrier Information
-        return [];
+        return ['carrierRate'];
       case 2: // Service Information
         return ['loadType', 'serviceType', 'serviceGivenAs', 'commodity'];
       case 3: // Booking Information
@@ -188,8 +205,23 @@ const CreateLoadPage: React.FC = () => {
             >
               <Input placeholder="Enter reference number" size="large" />
             </Form.Item>
-            <Form.Item label="Customer Rate" name="customerRate">
-              <Input placeholder="Enter customer rate" size="large" type="number" />
+            <Form.Item 
+              label="Customer Rate" 
+              name="customerRate"
+              rules={[
+                { required: true, message: 'Please enter customer rate' },
+                { 
+                  validator: (_, value) => {
+                    const numValue = value === '' || value === null || value === undefined ? null : Number(value);
+                    if (numValue === null || isNaN(numValue) || numValue <= 0) {
+                      return Promise.reject(new Error('Please enter a valid customer rate greater than 0'));
+                    }
+                    return Promise.resolve();
+                  }
+                }
+              ]}
+            >
+              <Input placeholder="Enter customer rate" size="large" type="number" min="0" step="0.01" />
             </Form.Item>
             <Form.Item
               label="Contact Name"
@@ -210,8 +242,23 @@ const CreateLoadPage: React.FC = () => {
             <Form.Item label="Carrier Payment Method" name="carrierPaymentMethod">
               <Input placeholder="Enter payment method" size="large" />
             </Form.Item>
-            <Form.Item label="Carrier Rate" name="carrierRate">
-              <Input placeholder="Enter carrier rate" size="large" type="number" />
+            <Form.Item 
+              label="Carrier Rate" 
+              name="carrierRate"
+              rules={[
+                { required: true, message: 'Please enter carrier rate' },
+                { 
+                  validator: (_, value) => {
+                    const numValue = value === '' || value === null || value === undefined ? null : Number(value);
+                    if (numValue === null || isNaN(numValue) || numValue <= 0) {
+                      return Promise.reject(new Error('Please enter a valid carrier rate greater than 0'));
+                    }
+                    return Promise.resolve();
+                  }
+                }
+              ]}
+            >
+              <Input placeholder="Enter carrier rate" size="large" type="number" min="0" step="0.01" />
             </Form.Item>
           </>
         );

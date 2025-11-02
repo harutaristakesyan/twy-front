@@ -91,9 +91,51 @@ class ApiClient {
     try {
       const res: AxiosResponse<T> = await ApiClient.instance.request<T>(config)
       return res.data
-    } catch (error) {
-      const message = error?.response?.data?.message || error?.message || 'Request failed'
-      throw new Error(message)
+    } catch (error: any) {
+      // Extract error message from various possible locations
+      let errorMessage = 'Request failed'
+      
+      try {
+        // Try to get message from response.data (most common)
+        if (error?.response?.data) {
+          const data = error.response.data
+          // Handle both object and string responses
+          if (typeof data === 'object') {
+            errorMessage = data.message || data.error || errorMessage
+          } else if (typeof data === 'string') {
+            errorMessage = data
+          }
+        }
+        
+        // Fallback to error.message if we didn't get a good message
+        if (errorMessage === 'Request failed' && error?.message) {
+          // Only use error.message if it doesn't look like a JavaScript error
+          if (!error.message.includes(' is not a function') && 
+              !error.message.includes('Cannot read') &&
+              !error.message.includes('Request failed')) {
+            errorMessage = error.message
+          }
+        }
+      } catch (extractError) {
+        // If extraction fails, use fallback
+        console.error('Error extracting message in ApiClient:', extractError)
+      }
+      
+      // Create error with API message, but preserve original error for debugging
+      const apiError = new Error(errorMessage)
+      
+      // Attach original error details for advanced error handling
+      try {
+        if (error?.response) {
+          (apiError as any).status = error.response.status
+          (apiError as any).data = error.response.data
+        }
+      } catch (attachError) {
+        // Silently fail if we can't attach debug info
+        console.error('Error attaching debug info:', attachError)
+      }
+      
+      throw apiError
     }
   }
 

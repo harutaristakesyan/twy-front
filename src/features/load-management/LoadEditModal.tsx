@@ -4,6 +4,7 @@ import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd';
 import { loadApi, type Load, type UpdateLoadDto, type LoadFile } from '@/entities/load';
 import { fileApi } from '@/shared/api/fileApi';
+import { getErrorMessage } from '@/shared/utils/errorUtils';
 
 interface LoadEditModalProps {
   open: boolean;
@@ -95,11 +96,27 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
       const pickup = values.pickup || {};
       const dropoff = values.dropoff || {};
 
-      const toNumberOrNull = (value?: string): number | null | undefined => {
+      const toNumberOrNull = (value?: string, fieldName?: string): number | null | undefined => {
         if (value === undefined) return undefined;
-        if (value === null || value === '') return null;
+        // For required fields (customerRate, carrierRate), don't allow null/empty
+        if (fieldName === 'customerRate' || fieldName === 'carrierRate') {
+          if (value === null || value === '') {
+            throw new Error(`${fieldName === 'customerRate' ? 'Customer Rate' : 'Carrier Rate'} is required`);
+          }
+        } else {
+          if (value === null || value === '') return null;
+        }
         const parsed = Number(value);
-        return Number.isNaN(parsed) ? null : parsed;
+        if (Number.isNaN(parsed)) {
+          if (fieldName === 'customerRate' || fieldName === 'carrierRate') {
+            throw new Error(`${fieldName === 'customerRate' ? 'Customer Rate' : 'Carrier Rate'} must be a valid number`);
+          }
+          return null;
+        }
+        if ((fieldName === 'customerRate' || fieldName === 'carrierRate') && parsed <= 0) {
+          throw new Error(`${fieldName === 'customerRate' ? 'Customer Rate' : 'Carrier Rate'} must be greater than 0`);
+        }
+        return parsed;
       };
 
       const toNullableString = (value?: string): string | null | undefined => {
@@ -112,11 +129,11 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
       const payload: UpdateLoadDto = {
         customer: values.customer,
         referenceNumber: values.referenceNumber,
-        customerRate: toNumberOrNull(values.customerRate),
+        customerRate: toNumberOrNull(values.customerRate, 'customerRate'),
         contactName: values.contactName,
         carrier: toNullableString(values.carrier),
         carrierPaymentMethod: toNullableString(values.carrierPaymentMethod),
-        carrierRate: toNumberOrNull(values.carrierRate),
+        carrierRate: toNumberOrNull(values.carrierRate, 'carrierRate'),
         chargeServiceFeeToOffice: values.chargeServiceFeeToOffice ?? false,
         loadType: values.loadType,
         serviceType: values.serviceType,
@@ -149,7 +166,7 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
       onSuccess();
     } catch (error) {
       console.error('Failed to update load:', error);
-      message.error('Failed to update load');
+      message.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -179,7 +196,7 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
       };
     } catch (error) {
       console.error('File upload failed:', error);
-      message.error({ content: 'File upload failed', key: 'upload' });
+      message.error({ content: getErrorMessage(error), key: 'upload' });
       return null;
     }
   };
@@ -242,9 +259,20 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
             <Form.Item 
               label="Customer Rate" 
               name="customerRate"
-              rules={[{ required: true, message: 'Please enter customer rate' }]}
+              rules={[
+                { required: true, message: 'Please enter customer rate' },
+                { 
+                  validator: (_, value) => {
+                    const numValue = value === '' || value === null || value === undefined ? null : Number(value);
+                    if (numValue === null || isNaN(numValue) || numValue <= 0) {
+                      return Promise.reject(new Error('Please enter a valid customer rate greater than 0'));
+                    }
+                    return Promise.resolve();
+                  }
+                }
+              ]}
             >
-              <Input placeholder="Enter customer rate" type="number" />
+              <Input placeholder="Enter customer rate" type="number" min="0" step="0.01" />
             </Form.Item>
             <Form.Item
               label="Contact Name"
@@ -268,9 +296,20 @@ export const LoadEditModal: React.FC<LoadEditModalProps> = ({
             <Form.Item 
               label="Carrier Rate" 
               name="carrierRate"
-              rules={[{ required: true, message: 'Please enter carrier rate' }]}
+              rules={[
+                { required: true, message: 'Please enter carrier rate' },
+                { 
+                  validator: (_, value) => {
+                    const numValue = value === '' || value === null || value === undefined ? null : Number(value);
+                    if (numValue === null || isNaN(numValue) || numValue <= 0) {
+                      return Promise.reject(new Error('Please enter a valid carrier rate greater than 0'));
+                    }
+                    return Promise.resolve();
+                  }
+                }
+              ]}
             >
-              <Input placeholder="Enter carrier rate" type="number" />
+              <Input placeholder="Enter carrier rate" type="number" min="0" step="0.01" />
             </Form.Item>
           </>
         );

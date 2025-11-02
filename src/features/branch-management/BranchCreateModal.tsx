@@ -12,6 +12,7 @@ import {
 import type { BranchFormData } from '@/entities/branch/types'
 import { createBranch } from '@/entities/branch/api'
 import type { User } from '@/entities/user/types'
+import { getErrorMessage } from '@/shared/utils/errorUtils'
 
 const { Option } = Select
 const { TextArea } = Input
@@ -43,13 +44,13 @@ const BranchCreateModal: React.FC<BranchCreateModalProps> = ({
       onSuccess()
     } catch (error: any) {
       // Handle duplicate branch name error
-      const errorMessage = error?.response?.data?.error || error?.message || ''
+      const errorMessage = getErrorMessage(error)
       
       if (errorMessage.includes('duplicate key value violates unique constraint "branch_name_key"') ||
           errorMessage.includes('branch_name_key')) {
         message.error(`Branch name "${values.name}" already exists. Please use a different name.`)
       } else {
-        message.error('Failed to create branch')
+        message.error(errorMessage)
       }
     } finally {
       setLoading(false)
@@ -118,10 +119,12 @@ const BranchCreateModal: React.FC<BranchCreateModalProps> = ({
             loading={loadingOwners}
             showSearch
             optionLabelProp="label"
-            filterOption={(input, option) =>
-              (option?.label ?? '').toLowerCase().includes(input.toLowerCase()) ||
-              (option?.email ?? '').toLowerCase().includes(input.toLowerCase())
-            }
+            filterOption={(input, option) => {
+              const label = String(option?.label ?? '')
+              const email = String(option?.email ?? '')
+              return label.toLowerCase().includes(input.toLowerCase()) ||
+                     email.toLowerCase().includes(input.toLowerCase())
+            }}
           >
             {owners.map(owner => (
               <Option 
